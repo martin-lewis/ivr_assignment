@@ -30,6 +30,13 @@ class image_converter:
     self.joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
     self.joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
 
+  def detect_yellow(self, img):
+    thresh = cv2.inRange(img, (0,100,100), (10,145,145))
+    M = cv2.moments(thresh)
+    xPos = int(M["m10"] / M["m00"])
+    yPos = int(M["m01"] / M["m00"])
+    return np.array([xPos, yPos])
+
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
     # Recieve the image
@@ -48,6 +55,8 @@ class image_converter:
     joint4Val = Float64()
     joint4Val.data = (pi/2) * sin((pi/20) * rospy.get_time())
     self.joint4_pub.publish(joint4Val)
+
+    print(self.detect_yellow(self.cv_image1))
 
     im1=cv2.imshow('window1', self.cv_image1)
     cv2.waitKey(1)
