@@ -3,7 +3,7 @@
 import roslib
 import sys
 import rospy
-import cv2
+from cv2 import cv2
 import numpy as np
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
