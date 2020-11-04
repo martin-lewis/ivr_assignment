@@ -9,6 +9,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
+from math import sin, pi
 
 
 class image_converter:
@@ -24,6 +25,10 @@ class image_converter:
     # initialize the bridge between openCV and ROS
     self.bridge = CvBridge()
 
+    #Publisher each of the 3 joints
+    self.joint2_pub = rospy.Publisher("/robot/joint2_position_controller/command", Float64, queue_size=10)
+    self.joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
+    self.joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
 
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
@@ -33,8 +38,16 @@ class image_converter:
     except CvBridgeError as e:
       print(e)
     
-    # Uncomment if you want to save the image
-    #cv2.imwrite('image_copy.png', cv_image)
+    #Set the joints according to the sinusodial positions
+    joint2Val = Float64() #Create Float
+    joint2Val.data = (pi/2) * sin((pi/15) * rospy.get_time()) #Set floats values
+    self.joint2_pub.publish(joint2Val) #Publish float to joint
+    joint3Val = Float64()
+    joint3Val.data = (pi/2) * sin((pi/18) * rospy.get_time())
+    self.joint3_pub.publish(joint3Val)
+    joint4Val = Float64()
+    joint4Val.data = (pi/2) * sin((pi/20) * rospy.get_time())
+    self.joint4_pub.publish(joint4Val)
 
     im1=cv2.imshow('window1', self.cv_image1)
     cv2.waitKey(1)
