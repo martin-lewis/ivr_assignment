@@ -37,6 +37,27 @@ class image_converter:
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos])
 
+  def detect_blue(self, img):
+    thresh = cv2.inRange(img, (100,0,0), (140,10,10))
+    M = cv2.moments(thresh)
+    xPos = int(M["m10"] / M["m00"])
+    yPos = int(M["m01"] / M["m00"])
+    return np.array([xPos, yPos])
+
+  def detect_green(self, img):
+    thresh = cv2.inRange(img, (0,100,0), (10,145,10))
+    M = cv2.moments(thresh)
+    xPos = int(M["m10"] / M["m00"])
+    yPos = int(M["m01"] / M["m00"])
+    return np.array([xPos, yPos])
+
+  def detect_red(self, img):
+    thresh = cv2.inRange(img, (0,0,100), (10,10,145))
+    M = cv2.moments(thresh)
+    xPos = int(M["m10"] / M["m00"])
+    yPos = int(M["m01"] / M["m00"])
+    return np.array([xPos, yPos])
+
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
     # Recieve the image
@@ -56,7 +77,7 @@ class image_converter:
     joint4Val.data = (pi/2) * sin((pi/20) * rospy.get_time())
     self.joint4_pub.publish(joint4Val)
 
-    print(self.detect_yellow(self.cv_image1))
+    print(self.detect_red(self.cv_image1))
 
     im1=cv2.imshow('window1', self.cv_image1)
     cv2.waitKey(1)
