@@ -9,7 +9,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
-from math import sin, pi
+from math import sin, pi, sqrt
 
 
 class image_converter:
@@ -22,6 +22,8 @@ class image_converter:
     self.image_pub1 = rospy.Publisher("image_topic1",Image, queue_size = 1)
     # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
     self.image_sub1 = rospy.Subscriber("/camera1/robot/image_raw",Image,self.callback1)
+    self.image_sub1 = rospy.Subscriber("/camera2/robot/image_raw",Image,self.callback2)
+
     # initialize the bridge between openCV and ROS
     self.bridge = CvBridge()
 
@@ -58,6 +60,33 @@ class image_converter:
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos])
 
+  def pixel2metre(self, img):
+    yellow = self.detect_yellow(img)
+    blue = self.detect_blue(img)
+    pixelDist = sqrt((yellow[0] - blue[0])**2 + (yellow[1] - blue[1]) ** 2)
+    return 2.5 / pixelDist
+
+  def green_in_yaxis(self, img_yplane):
+    distance = self.detect_green(img_yplane) - self.detect_yellow(img_yplane)
+    return distance[0] * self.pixel2metre(img_yplane)
+    
+  def green_in_zaxis(self, img_yplane):
+    distance = self.detect_yellow(img_yplane) - self.detect_green(img_yplane)
+    return distance[1] * self.pixel2metre(img_yplane)
+
+  def green_in_xaxis(self, img_xplane):
+    distance = self.detect_green(img_xplane) - self.detect_yellow(img_xplane) 
+    return distance[0] * self.pixel2metre(img_xplane)
+
+  def calc_joint_angles(self, img):
+    blue = self.detect_blue(img)
+    green = self.detect_green(img)
+    red = self.detect_red(img)
+
+    joint2 = np.arctan2(blue[0] - green[0], blue[1] - green[1])
+
+    return joint2
+
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
     # Recieve the image
@@ -77,13 +106,26 @@ class image_converter:
     joint4Val.data = (pi/2) * sin((pi/20) * rospy.get_time())
     self.joint4_pub.publish(joint4Val)
 
-    print(self.detect_red(self.cv_image1))
+    #print(joint2Val.data)
+    #print(self.calc_joint_angles(self.cv_image1))
+    #print("Diff")
+    #print(abs(joint2Val.data - self.calc_joint_angles(self.cv_image1)))
+    #print(self.detect_yellow(self.cv_image1))
+
+    print(self.green_in_xaxis(self.cv_image2))
 
     im1=cv2.imshow('window1', self.cv_image1)
+    im2=cv2.imshow('window2', self.cv_image2)
     cv2.waitKey(1)
     # Publish the results
     try: 
       self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
+    except CvBridgeError as e:
+      print(e)
+
+  def callback2(self,data):
+    try:
+      self.cv_image2 = self.bridge.imgmsg_to_cv2(data, "bgr8")
     except CvBridgeError as e:
       print(e)
 
