@@ -68,22 +68,26 @@ class image_converter:
     pixelDist = sqrt((yellow[0] - blue[0])**2 + (yellow[1] - blue[1]) ** 2) #Euclidean Distance
     return 2.5 / pixelDist
 
-  def green_in_yaxis(self, img_yplane):
-    distance = self.detect_green(img_yplane) - self.detect_yellow(img_yplane)
+  #Detects the position (w.r.t. yellow joint in metres) of an object on the y axis given a function that returns its position and the view of the y-plane
+  def detect_in_yaxis(self, detect_func, img_yplane):
+    distance = detect_func(img_yplane) - self.detect_yellow(img_yplane)
     return distance[0] * self.pixel2metre(img_yplane)
-    
-  def green_in_zaxis(self, img_yplane):
-    distance = self.detect_yellow(img_yplane) - self.detect_green(img_yplane)
-    return distance[1] * self.pixel2metre(img_yplane)
 
-  def green_in_xaxis(self, img_xplane):
-    distance = self.detect_green(img_xplane) - self.detect_yellow(img_xplane) 
+  #Detects the position (w.r.t. yellow joint in metres) of an object on the z axis given a function that returns its position and the view of the y-plane
+  def detect_in_zaxis(self, detect_func, img_yplane):
+    distance = self.detect_yellow(img_yplane) - detect_func(img_yplane)
+    return distance[1] * self.pixel2metre(img_yplane)
+  
+  #Detects the position (w.r.t. yellow joint in metres) of an object on the x axis given a function that returns its position and the view of the x-plane
+  def detect_in_xaxis(self, detect_func, img_xplane):
+    distance = detect_func(img_xplane) - self.detect_yellow(img_xplane)
     return distance[0] * self.pixel2metre(img_xplane)
 
-  def green_in_3D(self, img_yplane, img_xplane):
-    x = self.green_in_xaxis(img_xplane)
-    y = self.green_in_yaxis(img_yplane)
-    z = self.green_in_zaxis(img_yplane)
+  #Detects in 3D the position of an object w.r.t. the yellow joint
+  def detect_in_3D(self, detect_func, img_xplane, img_yplane):
+    x = self.detect_in_xaxis(detect_func, img_xplane)
+    y = self.detect_in_yaxis(detect_func, img_yplane)
+    z = self.detect_in_zaxis(detect_func, img_yplane)
     return np.array([x,y,z])
 
   def calc_joint_angles(self, img):
@@ -120,7 +124,7 @@ class image_converter:
     #print(abs(joint2Val.data - self.calc_joint_angles(self.cv_image1)))
     #print(self.detect_yellow(self.cv_image1))
 
-    print(self.green_in_3D(self.cv_image1, self.cv_image2))
+    print(self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1))
 
     im1=cv2.imshow('window1', self.cv_image1)
     im2=cv2.imshow('window2', self.cv_image2)
