@@ -80,6 +80,12 @@ class image_converter:
     distance = self.detect_green(img_xplane) - self.detect_yellow(img_xplane) 
     return distance[0] * self.pixel2metre(img_xplane)
 
+  def green_in_3D(self, img_yplane, img_xplane):
+    x = self.green_in_xaxis(img_xplane)
+    y = self.green_in_yaxis(img_yplane)
+    z = self.green_in_zaxis(img_yplane)
+    return np.array([x,y,z])
+
   def calc_joint_angles(self, img):
     blue = self.detect_blue(img)
     green = self.detect_green(img)
@@ -114,7 +120,7 @@ class image_converter:
     #print(abs(joint2Val.data - self.calc_joint_angles(self.cv_image1)))
     #print(self.detect_yellow(self.cv_image1))
 
-    print(self.green_in_xaxis(self.cv_image2))
+    print(self.green_in_3D(self.cv_image1, self.cv_image2))
 
     im1=cv2.imshow('window1', self.cv_image1)
     im2=cv2.imshow('window2', self.cv_image2)
