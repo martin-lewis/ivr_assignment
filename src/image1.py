@@ -32,12 +32,13 @@ class image_converter:
     self.joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
     self.joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
 
+  #Simple detection method
   def detect_yellow(self, img):
-    thresh = cv2.inRange(img, (0,100,100), (10,145,145))
+    thresh = cv2.inRange(img, (0,100,100), (10,145,145)) #Thresholds for values
     M = cv2.moments(thresh)
-    xPos = int(M["m10"] / M["m00"])
+    xPos = int(M["m10"] / M["m00"]) #Calculate centre from moments
     yPos = int(M["m01"] / M["m00"])
-    return np.array([xPos, yPos])
+    return np.array([xPos, yPos]) #Positions returned
 
   def detect_blue(self, img):
     thresh = cv2.inRange(img, (100,0,0), (140,10,10))
@@ -60,10 +61,11 @@ class image_converter:
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos])
 
+  #Calculates the pixel to 2 ratio using the 2.5m distance between the blue and yellow joints
   def pixel2metre(self, img):
     yellow = self.detect_yellow(img)
     blue = self.detect_blue(img)
-    pixelDist = sqrt((yellow[0] - blue[0])**2 + (yellow[1] - blue[1]) ** 2)
+    pixelDist = sqrt((yellow[0] - blue[0])**2 + (yellow[1] - blue[1]) ** 2) #Euclidean Distance
     return 2.5 / pixelDist
 
   def green_in_yaxis(self, img_yplane):
@@ -122,10 +124,11 @@ class image_converter:
       self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
     except CvBridgeError as e:
       print(e)
-
+  
+  #Additional Callback used to get the image from the other cameras (camera2)
   def callback2(self,data):
     try:
-      self.cv_image2 = self.bridge.imgmsg_to_cv2(data, "bgr8")
+      self.cv_image2 = self.bridge.imgmsg_to_cv2(data, "bgr8") #New image stored under self.cv_image2
     except CvBridgeError as e:
       print(e)
 
