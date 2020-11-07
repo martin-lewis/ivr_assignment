@@ -61,6 +61,15 @@ class image_converter:
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos])
 
+  #Detects the orange sphere that is the target
+  def detect_target(self, img):
+    template =cv2.imread("/home/martin/catkin_ws/src/ivr_assignment/template.png", 0) #Loads the template
+    thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
+    matching = cv2.matchTemplate(thresh, template, 1) #Performs matching between the thresholded data and the template
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(matching) #Gets the results of the matching
+    width, height = template.shape[::-1] #Details of the template to generate the centre
+    return np.array([min_loc[0] + width/2, min_loc[1] + height/2]) #Returns the centre of the target
+
   #Calculates the pixel to 2 ratio using the 2.5m distance between the blue and yellow joints
   def pixel2metre(self, img):
     yellow = self.detect_yellow(img)
@@ -124,7 +133,7 @@ class image_converter:
     #print(abs(joint2Val.data - self.calc_joint_angles(self.cv_image1)))
     #print(self.detect_yellow(self.cv_image1))
 
-    print(self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1))
+    print(self.detect_in_3D(self.detect_orange, self.cv_image2, self.cv_image1))
 
     im1=cv2.imshow('window1', self.cv_image1)
     im2=cv2.imshow('window2', self.cv_image2)
