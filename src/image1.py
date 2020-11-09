@@ -10,7 +10,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 from math import sin, pi, sqrt
-
+from scipy.optimize import least_squares
 
 class image_converter:
 
@@ -98,15 +98,25 @@ class image_converter:
     y = self.detect_in_yaxis(detect_func, img_yplane)
     z = self.detect_in_zaxis(detect_func, img_yplane)
     return np.array([x,y,z])
+  
+  def F1(self, x):
+    matrix = np.array([[np.cos(x[1]), 0, np.sin(x[1])], [np.sin(x[0])*np.sin(x[1]), np.cos(x[0]), -1*np.sin(x[0]) * np.cos(x[1])],
+    [-1*np.sin(x[1])*np.cos(x[0]), np.sin(x[0]) , np.cos(x[0])*np.cos(x[1])]])
+    blue = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
+    green = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
+    green_initial = blue
+    green_initial[2] = green_initial[2] + 3.5
+    sumof = np.dot(matrix @ green_initial, green)
+    print(sumof)
+    return sumof
+  
+  def calc_joint_angles(self):
+    #bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
+    #greenPos = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
+    results = least_squares(self.F1, [0,0])
+    return results.x
 
-  def calc_joint_angles(self, img):
-    blue = self.detect_blue(img)
-    green = self.detect_green(img)
-    red = self.detect_red(img)
 
-    joint2 = np.arctan2(blue[0] - green[0], blue[1] - green[1])
-
-    return joint2
 
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
@@ -127,13 +137,13 @@ class image_converter:
     joint4Val.data = (pi/2) * sin((pi/20) * rospy.get_time())
     self.joint4_pub.publish(joint4Val)
 
-    #print(joint2Val.data)
-    #print(self.calc_joint_angles(self.cv_image1))
-    #print("Diff")
-    #print(abs(joint2Val.data - self.calc_joint_angles(self.cv_image1)))
-    #print(self.detect_yellow(self.cv_image1))
-
-    print(self.detect_in_3D(self.detect_orange, self.cv_image2, self.cv_image1))
+    vals = (self.calc_joint_angles())
+    print(joint2Val.data)
+    print(joint3Val.data)
+    print(vals)
+    #print("Diffs:")
+    #print(abs(joint2Val.data - self.calc_joint_angles()))
+    #print(abs(joint3Val.data - self.calc_joint_angles()[1]))
 
     im1=cv2.imshow('window1', self.cv_image1)
     im2=cv2.imshow('window2', self.cv_image2)
