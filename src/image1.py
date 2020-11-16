@@ -9,7 +9,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
-from math import sin, pi, sqrt
+from math import sin, pi, sqrt, acos
 from scipy.optimize import least_squares
 
 class image_converter:
@@ -120,11 +120,25 @@ class image_converter:
   
   def calc_joint_angles(self):
     #bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
-    #greenPos = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
-    results = least_squares(self.F1, [0,0])
-    return results.x
+    greenPos = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
+    normToXAxis = [0,1,0]
+    projGreenXAxis = greenPos - ( np.multiply((np.dot(greenPos, normToXAxis) / pow(self.euclideanNorm(normToXAxis), 2)), normToXAxis ))
+    #print(greenPos)
+    #print(projGreenXAxis)
+    angle = self.angleBetweenVectors(greenPos, projGreenXAxis)
+    if greenPos[1] < 0 :
+      return angle
+    else:
+      return -1 * angle
 
+  def euclideanNorm(self, vector):
+    total = 0
+    for val in vector:
+      total = total + pow(val, 2)
+    return sqrt(total)
 
+  def angleBetweenVectors(self, v1, v2):
+    return acos(np.dot(v1,v2) / (self.euclideanNorm(v1) * self.euclideanNorm(v2)))
 
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
