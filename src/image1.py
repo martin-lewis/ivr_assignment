@@ -107,25 +107,13 @@ class image_converter:
     z = self.detect_in_zaxis(detect_func, img_yplane)
     return np.array([x,y,z])
   
-  def F1(self, x):
-    matrix = np.array([[np.cos(x[1]), 0, np.sin(x[1])], [np.sin(x[0])*np.sin(x[1]), np.cos(x[0]), -1*np.sin(x[0]) * np.cos(x[1])],
-    [-1*np.sin(x[1])*np.cos(x[0]), np.sin(x[0]) , np.cos(x[0])*np.cos(x[1])]])
-    blue = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
-    green = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
-    green_initial = blue
-    green_initial[2] = green_initial[2] + 3.5
-    sumof = np.dot(matrix @ green_initial, green)
-    print(sumof)
-    return sumof
-  
   def calc_joint_angles(self):
-    #bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
+    bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
     greenPos = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
+    blue2green = greenPos - bluePos
     normToXAxis = [0,1,0]
-    projGreenXAxis = greenPos - ( np.multiply((np.dot(greenPos, normToXAxis) / pow(self.euclideanNorm(normToXAxis), 2)), normToXAxis ))
-    #print(greenPos)
-    #print(projGreenXAxis)
-    angle = self.angleBetweenVectors(greenPos, projGreenXAxis)
+    projGreenXAxis = self.projectionOntoPlane(blue2green, normToXAxis)
+    angle = self.angleBetweenVectors(blue2green, projGreenXAxis)
     if greenPos[1] < 0 :
       return angle
     else:
@@ -139,6 +127,9 @@ class image_converter:
 
   def angleBetweenVectors(self, v1, v2):
     return acos(np.dot(v1,v2) / (self.euclideanNorm(v1) * self.euclideanNorm(v2)))
+
+  def projectionOntoPlane(self, vector, planeNormal):
+    return vector - (np.multiply((np.dot(vector, planeNormal) / pow(self.euclideanNorm(planeNormal),2)), planeNormal))
 
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
