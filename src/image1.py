@@ -111,13 +111,20 @@ class image_converter:
     bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
     greenPos = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
     blue2green = greenPos - bluePos
-    normToXAxis = [0,1,0]
-    projGreenXAxis = self.projectionOntoPlane(blue2green, normToXAxis)
-    angle = self.angleBetweenVectors(blue2green, projGreenXAxis)
-    if greenPos[1] < 0 :
-      return angle
-    else:
-      return -1 * angle
+    normToXZAxis = [0,1,0]
+    projGreenXZAxis = self.projectionOntoPlane(blue2green, normToXZAxis)
+    joint2Angle = self.angleBetweenVectors(blue2green, projGreenXZAxis)
+    if greenPos[1] > 0 :
+      joint2Angle = -1 * joint2Angle
+
+    normToYZAxis = [1,0,0]
+    projGreenYZAxis = self.projectionOntoPlane(blue2green, normToYZAxis)
+    joint3Angle = self.angleBetweenVectors(blue2green, projGreenYZAxis)
+    if greenPos[0] < 0:
+      joint3Angle = -1 * joint3Angle
+
+    return np.array([joint2Angle, joint3Angle])
+
 
   def euclideanNorm(self, vector):
     total = 0
