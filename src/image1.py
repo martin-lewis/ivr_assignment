@@ -110,20 +110,26 @@ class image_converter:
   def calc_joint_angles(self):
     bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
     greenPos = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
+    redPos = self.detect_in_3D(self.detect_red, self.cv_image2, self.cv_image1)
+    #Joint 1
     blue2green = greenPos - bluePos
     normToXZAxis = [0,1,0]
     projGreenXZAxis = self.projectionOntoPlane(blue2green, normToXZAxis)
     joint2Angle = self.angleBetweenVectors(blue2green, projGreenXZAxis)
     if greenPos[1] > 0 :
       joint2Angle = -1 * joint2Angle
-
+    #Joint 2
     normToYZAxis = [1,0,0]
     projGreenYZAxis = self.projectionOntoPlane(blue2green, normToYZAxis)
     joint3Angle = self.angleBetweenVectors(blue2green, projGreenYZAxis)
     if greenPos[0] < 0:
       joint3Angle = -1 * joint3Angle
+    #Joint 3
+    green2red = redPos - greenPos
+    projg2rb2g = self.projection(green2red, blue2green)
+    joint4Angle = self.angleBetweenVectors(green2red, projg2rb2g)
 
-    return np.array([joint2Angle, joint3Angle])
+    return np.array([joint2Angle, joint3Angle, joint4Angle])
 
 
   def euclideanNorm(self, vector):
@@ -136,7 +142,10 @@ class image_converter:
     return acos(np.dot(v1,v2) / (self.euclideanNorm(v1) * self.euclideanNorm(v2)))
 
   def projectionOntoPlane(self, vector, planeNormal):
-    return vector - (np.multiply((np.dot(vector, planeNormal) / pow(self.euclideanNorm(planeNormal),2)), planeNormal))
+    return vector - self.projection(vector, planeNormal)
+
+  def projection(self, v1, v2): #Projects v1 onto v2
+    return np.multiply((np.dot(v1,v2) / pow(self.euclideanNorm(v2),2)), v2)
 
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
