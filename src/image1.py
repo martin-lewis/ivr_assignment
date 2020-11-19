@@ -11,6 +11,7 @@ from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 from math import sin, pi, sqrt, acos
 from scipy.optimize import least_squares
+from fk import forward_kinematics
 
 class image_converter:
 
@@ -31,6 +32,11 @@ class image_converter:
     self.joint2_pub = rospy.Publisher("/robot/joint2_position_controller/command", Float64, queue_size=10)
     self.joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
     self.joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
+    
+    #Publisher end effector positions
+    self.end_effector_observed = rospy.Publisher("observed/end_effector", Float64MultiArray, queue_size=0)
+    self.end_effector_calculated = rospy.Publisher("calculated/end_effector", Float64MultiArray, queue_size=0)
+
 
   #Simple detection method
   def detect_yellow(self, img):
@@ -106,12 +112,17 @@ class image_converter:
     y = self.detect_in_yaxis(detect_func, img_yplane)
     z = self.detect_in_zaxis(detect_func, img_yplane)
     return np.array([x,y,z])
-  
-  def calc_joint_angles(self):
+
+
+  def find_blob_positions(self):
     bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
     greenPos = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
     redPos = self.detect_in_3D(self.detect_red, self.cv_image2, self.cv_image1)
-    #Joint 1
+    
+    return (bluePos,greenPos,redPos)
+
+  def calc_joint_angles(self,bluePos,greenPos,redPos):
+       #Joint 1
     blue2green = greenPos - bluePos
     normToXZAxis = [0,1,0]
     projGreenXZAxis = self.projectionOntoPlane(blue2green, normToXZAxis)
@@ -147,6 +158,20 @@ class image_converter:
   def projection(self, v1, v2): #Projects v1 onto v2
     return np.multiply((np.dot(v1,v2) / pow(self.euclideanNorm(v2),2)), v2)
 
+  def publish_forward_kinematics_results(self,q1,q2,q3,q4,observedRedBlobPosition):
+    prediction = forward_kinematics(q1,q2,q3,q4)
+    real = observedRedBlobPosition
+
+    msg_calculated = Float64MultiArray()
+    msg_calculated.data = prediction
+
+    msg_observed = Float64MultiArray()
+    msg_observed.data = real
+    print(str(prediction) + "\n")
+    self.end_effector_calculated.publish(msg_calculated)
+    self.end_effector_observed.publish(msg_observed)
+
+
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
     # Recieve the image
@@ -166,17 +191,24 @@ class image_converter:
     joint4Val.data = (pi/2) * sin((pi/20) * rospy.get_time())
     self.joint4_pub.publish(joint4Val)
 
-    vals = (self.calc_joint_angles())
-    print(joint2Val.data)
-    print(joint3Val.data)
-    print(vals)
+
+    bluePos,greenPos,redPos = self.find_blob_positions()
+    vals = (self.calc_joint_angles(bluePos,greenPos,redPos))
+
+
+
+    self.publish_forward_kinematics_results(0,joint2Val.data,joint3Val.data,joint4Val.data,redPos)
+
+    # print(joint2Val.data)
+    # print(joint3Val.data)
+    # print(vals)
     #print("Diffs:")
     #print(abs(joint2Val.data - self.calc_joint_angles()))
     #print(abs(joint3Val.data - self.calc_joint_angles()[1]))
 
-    im1=cv2.imshow('window1', self.cv_image1)
-    im2=cv2.imshow('window2', self.cv_image2)
-    cv2.waitKey(1)
+    # im1=cv2.imshow('window1', self.cv_image1)
+    # im2=cv2.imshow('window2', self.cv_image2)
+    # cv2.waitKey(1)
     # Publish the results
     try: 
       self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
