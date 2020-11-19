@@ -1,6 +1,6 @@
 \documentclass{report}
 \usepackage[utf8]{inputenc}
-\usepackage[landscape,margin=0.5in,a4paper]{geometry}
+% \usepackage[landscape]{geometry}
 \usepackage{graphicx}
 \title{IVR Assignment}
 \author{Maksymilian Mozolewski \& Martin Lewis}
@@ -10,8 +10,10 @@
 
 \let\cos\relax
 \let\sin\relax
-\DeclareMathOperator{\cos}{\mathit{C}}
-\DeclareMathOperator{\sin}{\mathit{S}}
+% \DeclareMathOperator{\cos}{\mathit{C}}
+% \DeclareMathOperator{\sin}{\mathit{S}}
+\newcommand{\sin}[1]{\mathit{S}_{#1}}
+\newcommand{\cos}[1]{\mathit{C}_{#1}}
 
 \begin{document}
 
@@ -19,8 +21,31 @@
 
 \section*{3.1}
 
-Forward kinematics matrix in it's entirety: 
+The forward kinematics, was derived using d-h parameters and a sympy script which parsed it to avoid any mathematical errors (The said script is available in the repository). The final forward kinematics translation component looks like the following:
 
-\scalemath{0.55}{
-\begin{equation}\left(\begin{array}{cccc}\left(\sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \cos{\left(q_{3} \right)} + \sin{\left(q_{3} \right)} \cos{\left(q_{1} \right)}\right) \cos{\left(q_{4} \right)} + \sin{\left(q_{1} \right)} \sin{\left(q_{4} \right)} \cos{\left(q_{2} \right)} & - \left(\sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \cos{\left(q_{3} \right)} + \sin{\left(q_{3} \right)} \cos{\left(q_{1} \right)}\right) \sin{\left(q_{4} \right)} + \sin{\left(q_{1} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{4} \right)} & - \sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \sin{\left(q_{3} \right)} + \cos{\left(q_{1} \right)} \cos{\left(q_{3} \right)} & 3 \left(\sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \cos{\left(q_{3} \right)} + \sin{\left(q_{3} \right)} \cos{\left(q_{1} \right)}\right) \cos{\left(q_{4} \right)} + 3.5 \sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \cos{\left(q_{3} \right)} + 3 \sin{\left(q_{1} \right)} \sin{\left(q_{4} \right)} \cos{\left(q_{2} \right)} + 3.5 \sin{\left(q_{3} \right)} \cos{\left(q_{1} \right)}\\\left(\sin{\left(q_{1} \right)} \sin{\left(q_{3} \right)} - \sin{\left(q_{2} \right)} \cos{\left(q_{1} \right)} \cos{\left(q_{3} \right)}\right) \cos{\left(q_{4} \right)} - \sin{\left(q_{4} \right)} \cos{\left(q_{1} \right)} \cos{\left(q_{2} \right)} & - \left(\sin{\left(q_{1} \right)} \sin{\left(q_{3} \right)} - \sin{\left(q_{2} \right)} \cos{\left(q_{1} \right)} \cos{\left(q_{3} \right)}\right) \sin{\left(q_{4} \right)} - \cos{\left(q_{1} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{4} \right)} & \sin{\left(q_{1} \right)} \cos{\left(q_{3} \right)} + \sin{\left(q_{2} \right)} \sin{\left(q_{3} \right)} \cos{\left(q_{1} \right)} & 3 \left(\sin{\left(q_{1} \right)} \sin{\left(q_{3} \right)} - \sin{\left(q_{2} \right)} \cos{\left(q_{1} \right)} \cos{\left(q_{3} \right)}\right) \cos{\left(q_{4} \right)} + 3.5 \sin{\left(q_{1} \right)} \sin{\left(q_{3} \right)} - 3.5 \sin{\left(q_{2} \right)} \cos{\left(q_{1} \right)} \cos{\left(q_{3} \right)} - 3 \sin{\left(q_{4} \right)} \cos{\left(q_{1} \right)} \cos{\left(q_{2} \right)}\\- \sin{\left(q_{2} \right)} \sin{\left(q_{4} \right)} + \cos{\left(q_{2} \right)} \cos{\left(q_{3} \right)} \cos{\left(q_{4} \right)} & - \sin{\left(q_{2} \right)} \cos{\left(q_{4} \right)} - \sin{\left(q_{4} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{3} \right)} & - \sin{\left(q_{3} \right)} \cos{\left(q_{2} \right)} & - 3 \sin{\left(q_{2} \right)} \sin{\left(q_{4} \right)} + 3 \cos{\left(q_{2} \right)} \cos{\left(q_{3} \right)} \cos{\left(q_{4} \right)} + 3.5 \cos{\left(q_{2} \right)} \cos{\left(q_{3} \right)} + 2.5\\0 & 0 & 0 & 1\end{array}\right)\end{equation}}
+\begin{equation*}
+\begin{bmatrix}
+           x_{e} \\
+           y_{2} \\
+           z_{e}
+\end{bmatrix} = 
+\left(\begin{array}{c} %
+    3 \left(\sin{q_{1}} \sin{q_{2}} \cos{q_{3}} + \sin{q_{3}} \cos{q_{1}}\right) \cos{q_{4}}  %
+    + 3.5 \sin{q_{1}} \sin{q_{2}} \cos{q_{3}} %
+    + 3 \sin{q_{1}} \sin{q_{4}} \cos{q_{2} } %
+    + 3.5 \sin{q_{3}} \cos{q_{1}} %
+    \\
+    3 \left(\sin{q_{1}} \sin{q_{3}} %
+    - \sin{q_{2}} \cos{q_{1}} \cos{q_{3}}\right) \cos{q_{4}} %
+    + 3.5 \sin{q_{1}} \sin{q_{3}} %
+    - 3.5 \sin{q_{2}} \cos{q_{1}} \cos{q_{3}} %
+    - 3 \sin{q_{4}} \cos{q_{1}} \cos{q_{2}} %
+    \\
+    - 3 \sin{q_{2}} \sin{q_{4}} %
+    + 3 \cos{q_{2}} \cos{q_{3}} \cos{q_{4}} %
+    + 3.5 \cos{q_{2}} \cos{q_{3}} + 2.5
+    \end{array}\right)
+\end{equation*}
+
+
 \end{document}
