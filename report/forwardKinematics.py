@@ -28,9 +28,9 @@ if __name__ == "__main__":
 
     t1,t2,t3,t4 = getTransformationsFromDHTable(np.array([
     [ -pi/2, 0,  2.5,   -pi/2 + symbols("q_{1}")],
-    [ pi/2, 0,  0,  -pi/2 + symbols("q_{2}")],
-    [ -pi/2, 3.5,    0,  symbols("q_{3}")],
-    [ 0,3, 0, symbols("q_{4}")]]))
+    [ pi/2, 0,  0,  -pi/2 - symbols("q_{2}")],
+    [ -pi/2, 3.5,    0,  -symbols("q_{3}")],
+    [ 0,3, 0, -symbols("q_{4}")]]))
 
     finalTransformation=trigsimp((t1*t2*t3*t4),ratio=1)
 
