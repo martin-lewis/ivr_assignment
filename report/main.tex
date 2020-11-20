@@ -7,6 +7,7 @@
 \date{November 2020}
 \newcommand\scalemath[2]{\scalebox{#1}{\mbox{\ensuremath{\displaystyle #2}}}}
 \usepackage{amsmath}
+\usepackage[landscape,margin=0.5in]{geometry}
 
 \let\cos\relax
 \let\sin\relax
@@ -26,7 +27,7 @@ The forward kinematics, was derived using d-h parameters and a sympy script whic
 \begin{equation*}
 \begin{bmatrix}
            x_{e} \\
-           y_{2} \\
+           y_{e} \\
            z_{e}
 \end{bmatrix} = 
 \left(\begin{array}{c} %
@@ -47,5 +48,14 @@ The forward kinematics, was derived using d-h parameters and a sympy script whic
     \end{array}\right)
 \end{equation*}
 
+
+\begin{equation*}
+\begin{bmatrix}
+           \dot{x_{e}} \\
+           \dot{y_{e}} \\
+           \dpt{z_{e}}
+\end{bmatrix} = %
+\left(\begin{array}{c}\dot{q_{1}} \left(\left(- 3 \sin{\left(q_{1} \right)} \sin{\left(q_{3} \right)} + 3 \sin{\left(q_{2} \right)} \cos{\left(q_{1} \right)} \cos{\left(q_{3} \right)}\right) \cos{\left(q_{4} \right)} - 3.5 \sin{\left(q_{1} \right)} \sin{\left(q_{3} \right)} + 3.5 \sin{\left(q_{2} \right)} \cos{\left(q_{1} \right)} \cos{\left(q_{3} \right)} + 3 \sin{\left(q_{4} \right)} \cos{\left(q_{1} \right)} \cos{\left(q_{2} \right)}\right) + \dot{q_{2}} \left(- 3 \sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \sin{\left(q_{4} \right)} + 3 \sin{\left(q_{1} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{3} \right)} \cos{\left(q_{4} \right)} + 3.5 \sin{\left(q_{1} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{3} \right)}\right) + \dot{q_{3}} \left(\left(- 3 \sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \sin{\left(q_{3} \right)} + 3 \cos{\left(q_{1} \right)} \cos{\left(q_{3} \right)}\right) \cos{\left(q_{4} \right)} - 3.5 \sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \sin{\left(q_{3} \right)} + 3.5 \cos{\left(q_{1} \right)} \cos{\left(q_{3} \right)}\right) + \dot{q_{4}} \left(- \left(3 \sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \cos{\left(q_{3} \right)} + 3 \sin{\left(q_{3} \right)} \cos{\left(q_{1} \right)}\right) \sin{\left(q_{4} \right)} + 3 \sin{\left(q_{1} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{4} \right)}\right)\\\dot{q_{1}} \left(\left(3 \sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \cos{\left(q_{3} \right)} + 3 \sin{\left(q_{3} \right)} \cos{\left(q_{1} \right)}\right) \cos{\left(q_{4} \right)} + 3.5 \sin{\left(q_{1} \right)} \sin{\left(q_{2} \right)} \cos{\left(q_{3} \right)} + 3 \sin{\left(q_{1} \right)} \sin{\left(q_{4} \right)} \cos{\left(q_{2} \right)} + 3.5 \sin{\left(q_{3} \right)} \cos{\left(q_{1} \right)}\right) + \dot{q_{2}} \left(3 \sin{\left(q_{2} \right)} \sin{\left(q_{4} \right)} \cos{\left(q_{1} \right)} - 3 \cos{\left(q_{1} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{3} \right)} \cos{\left(q_{4} \right)} - 3.5 \cos{\left(q_{1} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{3} \right)}\right) + \dot{q_{3}} \left(\left(3 \sin{\left(q_{1} \right)} \cos{\left(q_{3} \right)} + 3 \sin{\left(q_{2} \right)} \sin{\left(q_{3} \right)} \cos{\left(q_{1} \right)}\right) \cos{\left(q_{4} \right)} + 3.5 \sin{\left(q_{1} \right)} \cos{\left(q_{3} \right)} + 3.5 \sin{\left(q_{2} \right)} \sin{\left(q_{3} \right)} \cos{\left(q_{1} \right)}\right) + \dot{q_{4}} \left(- \left(3 \sin{\left(q_{1} \right)} \sin{\left(q_{3} \right)} - 3 \sin{\left(q_{2} \right)} \cos{\left(q_{1} \right)} \cos{\left(q_{3} \right)}\right) \sin{\left(q_{4} \right)} - 3 \cos{\left(q_{1} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{4} \right)}\right)\\\dot{q_{2}} \left(- 3 \sin{\left(q_{2} \right)} \cos{\left(q_{3} \right)} \cos{\left(q_{4} \right)} - 3.5 \sin{\left(q_{2} \right)} \cos{\left(q_{3} \right)} - 3 \sin{\left(q_{4} \right)} \cos{\left(q_{2} \right)}\right) + \dot{q_{3}} \left(- 3 \sin{\left(q_{3} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{4} \right)} - 3.5 \sin{\left(q_{3} \right)} \cos{\left(q_{2} \right)}\right) + \dot{q_{4}} \left(- 3 \sin{\left(q_{2} \right)} \cos{\left(q_{4} \right)} - 3 \sin{\left(q_{4} \right)} \cos{\left(q_{2} \right)} \cos{\left(q_{3} \right)}\right)\end{array}\right)
+\end{equation*}
 
 \end{document}
