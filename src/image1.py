@@ -68,21 +68,27 @@ class image_converter:
 
   def detect_blue(self, img):
     thresh = cv2.inRange(img, (100,0,0), (140,10,10))
-    M = cv2.moments(thresh)
+    kernel = np.ones((5, 5), np.uint8)
+    result = cv2.dilate(thresh, kernel, iterations=3)
+    M = cv2.moments(result)
     xPos = int(M["m10"] / M["m00"])
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos])
 
   def detect_green(self, img):
     thresh = cv2.inRange(img, (0,100,0), (10,145,10))
-    M = cv2.moments(thresh)
+    kernel = np.ones((5, 5), np.uint8)
+    result = cv2.dilate(thresh, kernel, iterations=3)
+    M = cv2.moments(result)
     xPos = int(M["m10"] / M["m00"])
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos])
 
   def detect_red(self, img):
     thresh = cv2.inRange(img, (0,0,100), (10,10,145))
-    M = cv2.moments(thresh)
+    kernel = np.ones((5, 5), np.uint8)
+    result = cv2.dilate(thresh, kernel, iterations=3)
+    M = cv2.moments(result)
     xPos = int(M["m10"] / M["m00"])
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos])
@@ -142,7 +148,7 @@ class image_converter:
     return (bluePos,greenPos,redPos)
 
   def calc_joint_angles(self,bluePos,greenPos,redPos):
-       #Joint 1
+    #Joint 1
     blue2green = greenPos - bluePos
     normToXZAxis = [0,1,0]
     projGreenXZAxis = self.projectionOntoPlane(blue2green, normToXZAxis)
@@ -159,7 +165,7 @@ class image_converter:
     green2red = redPos - greenPos
     projg2rb2g = self.projection(green2red, blue2green)
     joint4Angle = self.angleBetweenVectors(green2red, projg2rb2g)
-
+    #TODO: Work out which way its turned
     return np.array([joint2Angle, joint3Angle, joint4Angle])
 
 
@@ -267,6 +273,9 @@ class image_converter:
     self.est_joint3_pub.publish(joint_angles[1])
     self.est_joint4_pub.publish(joint_angles[2])
 
+    print(joint_angles)
+    actual_angles = np.array([(joint2Val.data), (joint3Val.data), (joint4Val.data)])
+    print(joint_angles - actual_angles)
     # Task 2
     if self.fk is not None:
       self.publish_forward_kinematics_results(
