@@ -296,13 +296,13 @@ class image_converter:
     #Set the joints according to the sinusodial positions
     
     joint2Val = Float64() #Create Float
-    joint2Val.data = (pi/2) * sin((pi/15) * rospy.get_time()) #Set floats values
+    joint2Val.data = pi/2#(pi/2) * sin((pi/15) * rospy.get_time()) #Set floats values
     self.joint2_pub.publish(joint2Val) #Publish float to joint
     joint3Val = Float64()
-    joint3Val.data = (pi/2) * sin((pi/18) * rospy.get_time())
+    joint3Val.data = 0#(pi/2) * sin((pi/18) * rospy.get_time())
     self.joint3_pub.publish(joint3Val)
     joint4Val = Float64()
-    joint4Val.data = (pi/2) * sin((pi/20) * rospy.get_time())
+    joint4Val.data = 0#(pi/2) * sin((pi/20) * rospy.get_time())
     self.joint4_pub.publish(joint4Val)
     # print(joint2Val.data)
     # print(joint3Val.data)
@@ -322,7 +322,7 @@ class image_converter:
       print("observed      :" + str(redPos))
       print("fk observed   :" + str(self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2]).flatten()) )
       print("fk real       :" + str(self.fk(0,joint2Val.data,joint3Val.data ,joint4Val.data).flatten()) )
-      print("diff observed :" + str(np.linalg.norm(self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2]).flatten() - redPos)) )
+      print("diff real fk  :" + str(np.linalg.norm(self.fk(0,joint2Val.data,joint3Val.data ,joint4Val.data).flatten() - redPos)) )
 
       print("\n")
     redVec = np.array([[redPos[0]],
