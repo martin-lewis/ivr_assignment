@@ -299,17 +299,11 @@ class image_converter:
     joint2Val.data = (pi/2) * sin((pi/15) * rospy.get_time()) #Set floats values
     self.joint2_pub.publish(joint2Val) #Publish float to joint
     joint3Val = Float64()
-    joint3Val.data = (pi/2) * sin((pi/18) * rospy.get_time())
+    joint3Val.data = 0 #(pi/2) * sin((pi/18) * rospy.get_time())
     self.joint3_pub.publish(joint3Val)
     joint4Val = Float64()
-    joint4Val.data = (pi/2) * sin((pi/20) * rospy.get_time())
+    joint4Val.data = 0 #(pi/2) * sin((pi/20) * rospy.get_time())
     self.joint4_pub.publish(joint4Val)
-    # print(joint2Val.data)
-    # print(joint3Val.data)
-    # print(joint_angles)
-    #print("Diffs:")
-    #print(abs(joint2Val.data - self.calc_joint_angles()))
-    #print(abs(joint3Val.data - self.calc_joint_angles()[1]))
 
     # im1=cv2.imshow('window1', self.cv_image1)
     # im2=cv2.imshow('window2', self.cv_image2)
