@@ -10,7 +10,6 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 from math import sin, pi, sqrt, acos
-from scipy.optimize import least_squares
 from kinematics import calculate_all
 
 class image_converter:
@@ -37,6 +36,11 @@ class image_converter:
     self.joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
     self.joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
 
+    #Publish the estimated position of the 3 joints
+    self.est_joint2_pub = rospy.Publisher("observed/joint2", Float64, queue_size=10)
+    self.est_joint3_pub = rospy.Publisher("observed/joint3", Float64, queue_size=10)
+    self.est_joint4_pub = rospy.Publisher("observed/joint4", Float64, queue_size=10)
+
     # Task 2
 
     #Publisher end effector positions
@@ -60,28 +64,36 @@ class image_converter:
   #Simple detection method
   def detect_yellow(self, img):
     thresh = cv2.inRange(img, (0,100,100), (10,145,145)) #Thresholds for values
-    M = cv2.moments(thresh)
+    kernel = np.ones((5, 5), np.uint8)
+    result = cv2.dilate(thresh, kernel, iterations=3)
+    M = cv2.moments(result)
     xPos = int(M["m10"] / M["m00"]) #Calculate centre from moments
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos]) #Positions returned
 
   def detect_blue(self, img):
     thresh = cv2.inRange(img, (100,0,0), (140,10,10))
-    M = cv2.moments(thresh)
+    kernel = np.ones((5, 5), np.uint8)
+    result = cv2.dilate(thresh, kernel, iterations=3)
+    M = cv2.moments(result)
     xPos = int(M["m10"] / M["m00"])
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos])
 
   def detect_green(self, img):
     thresh = cv2.inRange(img, (0,100,0), (10,145,10))
-    M = cv2.moments(thresh)
+    kernel = np.ones((5, 5), np.uint8)
+    result = cv2.dilate(thresh, kernel, iterations=3)
+    M = cv2.moments(result)
     xPos = int(M["m10"] / M["m00"])
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos])
 
   def detect_red(self, img):
     thresh = cv2.inRange(img, (0,0,100), (10,10,145))
-    M = cv2.moments(thresh)
+    kernel = np.ones((5, 5), np.uint8)
+    result = cv2.dilate(thresh, kernel, iterations=3)
+    M = cv2.moments(result)
     xPos = int(M["m10"] / M["m00"])
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos])
@@ -141,7 +153,7 @@ class image_converter:
     return (bluePos,greenPos,redPos)
 
   def calc_joint_angles(self,bluePos,greenPos,redPos):
-       #Joint 1
+    #Joint 1
     blue2green = greenPos - bluePos
     normToXZAxis = [0,1,0]
     projGreenXZAxis = self.projectionOntoPlane(blue2green, normToXZAxis)
@@ -158,7 +170,7 @@ class image_converter:
     green2red = redPos - greenPos
     projg2rb2g = self.projection(green2red, blue2green)
     joint4Angle = self.angleBetweenVectors(green2red, projg2rb2g)
-
+    #TODO: Work out which way its turned
     return np.array([joint2Angle, joint3Angle, joint4Angle])
 
 
@@ -281,8 +293,8 @@ class image_converter:
       print(e)
     
     # Task 1
-
     #Set the joints according to the sinusodial positions
+    '''
     joint2Val = Float64() #Create Float
     joint2Val.data = (pi/2) * sin((pi/15) * rospy.get_time()) #Set floats values
     self.joint2_pub.publish(joint2Val) #Publish float to joint
@@ -309,6 +321,15 @@ class image_converter:
     redVec = np.array([[redPos[0]],
                         [redPos[1]],
                         [redPos[2]]])
+
+    #Publising estimated joint angles
+    self.est_joint2_pub.publish(joint_angles[0])
+    self.est_joint3_pub.publish(joint_angles[1])
+    self.est_joint4_pub.publish(joint_angles[2])
+
+    print(joint_angles)
+    actual_angles = np.array([(joint2Val.data), (joint3Val.data), (joint4Val.data)])
+    print(joint_angles - actual_angles)
     # Task 2
     if self.fk is not None:
       self.publish_forward_kinematics_results(
