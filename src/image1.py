@@ -141,7 +141,7 @@ class image_converter:
   def detect_in_3D(self, detect_func, img_xplane, img_yplane):
     x = self.detect_in_xaxis(detect_func, img_xplane)
     y = self.detect_in_yaxis(detect_func, img_yplane)
-    z = self.detect_in_zaxis(detect_func, img_yplane)
+    z = (self.detect_in_zaxis(detect_func, img_yplane) + self.detect_in_zaxis(detect_func, img_xplane) ) / 2
     return np.array([x,y,z])
 
 
