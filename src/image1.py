@@ -294,7 +294,7 @@ class image_converter:
     
     # Task 1
     #Set the joints according to the sinusodial positions
-    '''
+    
     joint2Val = Float64() #Create Float
     joint2Val.data = (pi/2) * sin((pi/15) * rospy.get_time()) #Set floats values
     self.joint2_pub.publish(joint2Val) #Publish float to joint
@@ -318,6 +318,13 @@ class image_converter:
     bluePos,greenPos,redPos = self.find_blob_positions()
     joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
 
+    if self.fk is not None:
+      print("observed      :" + str(redPos))
+      print("fk observed   :" + str(self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2]).flatten()) )
+      print("fk real       :" + str(self.fk(0,joint2Val.data,joint3Val.data ,joint4Val.data).flatten()) )
+      print("diff observed :" + str(np.linalg.norm(self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2]).flatten() - redPos)) )
+
+      print("\n")
     redVec = np.array([[redPos[0]],
                         [redPos[1]],
                         [redPos[2]]])
@@ -327,14 +334,14 @@ class image_converter:
     self.est_joint3_pub.publish(joint_angles[1])
     self.est_joint4_pub.publish(joint_angles[2])
 
-    print(joint_angles)
+    # print(joint_angles)
     actual_angles = np.array([(joint2Val.data), (joint3Val.data), (joint4Val.data)])
-    print(joint_angles - actual_angles)
+    # print(joint_angles - actual_angles)
     # Task 2
-    if self.fk is not None:
-      self.publish_forward_kinematics_results(
-        0,joint2Val.data,joint3Val.data,joint4Val.data,redVec)
-
+    # if self.fk is not None:
+    #   self.publish_forward_kinematics_results(
+    #     0,joint2Val.data,joint3Val.data,joint4Val.data,redVec)
+  
     target_end_pos = np.array([0,0,0])
     q_d = self.closed_control(target_end_pos,redPos,np.array([0,joint_angles[0],joint_angles[1],joint_angles[2]]))
     # q_d_2 = self.closed_control_w_secondary_task(target_end_pos,redPos,np.array([0,joint_angles[0],joint_angles[1],joint_angles[2]]),
