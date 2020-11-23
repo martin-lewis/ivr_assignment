@@ -11,12 +11,16 @@ from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 from math import sin, pi, sqrt, acos
 from scipy.optimize import least_squares
-from fk import forward_kinematics
+from kinematics import calculate_all
 
 class image_converter:
 
   # Defines publisher and subscriber
   def __init__(self):
+
+
+    # Task 1
+
     # initialize the node named image_processing
     rospy.init_node('image_processing', anonymous=True)
     # initialize a publisher to send images from camera1 to a topic named image_topic1
@@ -32,11 +36,21 @@ class image_converter:
     self.joint2_pub = rospy.Publisher("/robot/joint2_position_controller/command", Float64, queue_size=10)
     self.joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
     self.joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
-    
+
+    # Task 2
+
     #Publisher end effector positions
     self.end_effector_observed = rospy.Publisher("observed/end_effector", Float64MultiArray, queue_size=0)
     self.end_effector_calculated = rospy.Publisher("calculated/end_effector", Float64MultiArray, queue_size=0)
 
+    self.fk,self.jacobian,self.vk = None,None,None 
+
+    self.fk,self.jacobian,self.vk = calculate_all()
+
+    # initial time
+    self.time_previous_step = np.array([rospy.get_time()])
+    # the vector from current to desired position in the last loop
+    self.error = np.array([0,0,0])
 
   #Simple detection method
   def detect_yellow(self, img):
@@ -159,7 +173,7 @@ class image_converter:
     return np.multiply((np.dot(v1,v2) / pow(self.euclideanNorm(v2),2)), v2)
 
   def publish_forward_kinematics_results(self,q1,q2,q3,q4,observedRedBlobPosition):
-    prediction = forward_kinematics(q1,q2,q3,q4)
+    prediction = self.fk(q1,q2,q3,q4)
     real = observedRedBlobPosition
 
     msg_calculated = Float64MultiArray()
@@ -167,10 +181,42 @@ class image_converter:
 
     msg_observed = Float64MultiArray()
     msg_observed.data = real
-    print(str(prediction) + "\n")
     self.end_effector_calculated.publish(msg_calculated)
     self.end_effector_observed.publish(msg_observed)
 
+
+  # pos_d-    desired position, 
+  # pos-      current end effector position
+  # q_est-    estimated joint angles
+  def closed_control(self,pos_d,pos,q_est):
+
+    #TODO: tweak those 
+    # P gain
+    K_p = np.array([[10,0,0],[0,10,0],[0,0,10]])
+    # D gain
+    K_d = np.array([[0.1,0,0],[0,0.1,0],[0,0,0.1]])
+
+    # loop time
+    cur_time = np.array([rospy.get_time()])
+    dt = cur_time - self.time_previous_step
+    self.time_previous_step = cur_time
+
+    # estimate derivative of error
+    error_d = ((pos_d - pos) - self.error)/dt
+    # estimate error
+    self.error = pos_d-pos
+    # pseudo inverse
+    
+    J_inv = np.linalg.pinv(self.jacobian(q_est[0],q_est[1],q_est[2],q_est[3]))  
+
+    # angular velocity of joints  
+    error_p_gain = np.dot(K_p,self.error.transpose())
+    error_d_gain = np.dot(K_d,error_d.transpose())
+    error_sum = error_d_gain + error_p_gain
+    dq_d =np.dot(J_inv,(error_sum))
+    # new joint angles 
+    q_d = q_est + (dt * dq_d)  
+    return q_d
 
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
@@ -180,6 +226,8 @@ class image_converter:
     except CvBridgeError as e:
       print(e)
     
+    # Task 1
+
     #Set the joints according to the sinusodial positions
     joint2Val = Float64() #Create Float
     joint2Val.data = (pi/2) * sin((pi/15) * rospy.get_time()) #Set floats values
@@ -190,18 +238,9 @@ class image_converter:
     joint4Val = Float64()
     joint4Val.data = (pi/2) * sin((pi/20) * rospy.get_time())
     self.joint4_pub.publish(joint4Val)
-
-
-    bluePos,greenPos,redPos = self.find_blob_positions()
-    vals = (self.calc_joint_angles(bluePos,greenPos,redPos))
-
-
-
-    self.publish_forward_kinematics_results(0,joint2Val.data,joint3Val.data,joint4Val.data,redPos)
-
     # print(joint2Val.data)
     # print(joint3Val.data)
-    # print(vals)
+    # print(joint_angles)
     #print("Diffs:")
     #print(abs(joint2Val.data - self.calc_joint_angles()))
     #print(abs(joint3Val.data - self.calc_joint_angles()[1]))
@@ -209,6 +248,22 @@ class image_converter:
     # im1=cv2.imshow('window1', self.cv_image1)
     # im2=cv2.imshow('window2', self.cv_image2)
     # cv2.waitKey(1)
+
+    bluePos,greenPos,redPos = self.find_blob_positions()
+    joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
+
+    redVec = np.array([[redPos[0]],
+                        [redPos[1]],
+                        [redPos[2]]])
+    # Task 2
+    if self.fk is not None:
+      self.publish_forward_kinematics_results(
+        0,joint2Val.data,joint3Val.data,joint4Val.data,redVec)
+
+    target_end_pos = np.array([0,0,0])
+    q_d = self.closed_control(target_end_pos,redPos,np.array([0,joint_angles[0],joint_angles[1],joint_angles[2]]))
+
+
     # Publish the results
     try: 
       self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
