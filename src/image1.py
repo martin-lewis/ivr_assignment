@@ -55,7 +55,11 @@ class image_converter:
   #Simple detection method
   def detect_yellow(self, img):
     thresh = cv2.inRange(img, (0,100,100), (10,145,145)) #Thresholds for values
-    M = cv2.moments(thresh)
+    kernel = np.ones((5, 5), np.uint8)
+    result = cv2.dilate(thresh, kernel, iterations=3)
+    cv2.imwrite("thresh.png", thresh)
+    cv2.imwrite("dilate.png", result)
+    M = cv2.moments(result)
     xPos = int(M["m10"] / M["m00"]) #Calculate centre from moments
     yPos = int(M["m01"] / M["m00"])
     return np.array([xPos, yPos]) #Positions returned
@@ -83,7 +87,7 @@ class image_converter:
 
   #Detects the orange sphere that is the target
   def detect_target(self, img):
-    template =cv2.imread("~/catkin_ws/src/ivr_assignment/template-sphere.png", 0) #Loads the template
+    template =cv2.imread("/home/martin/catkin_ws/src/ivr_assignment/template-sphere.png", 0) #Loads the template
     thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
     matching = cv2.matchTemplate(thresh, template, 1) #Performs matching between the thresholded data and the template
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(matching) #Gets the results of the matching
@@ -91,7 +95,7 @@ class image_converter:
     return np.array([min_loc[0] + width/2, min_loc[1] + height/2]) #Returns the centre of the target
 
   def detect_box(self, img):
-    template =cv2.imread("~/catkin_ws/src/ivr_assignment/template-box.png", 0) #Loads the template
+    template =cv2.imread("/home/martin/catkin_ws/src/ivr_assignment/template-box.png", 0) #Loads the template
     thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
     matching = cv2.matchTemplate(thresh, template, 1) #Performs matching between the thresholded data and the template
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(matching) #Gets the results of the matching
@@ -229,6 +233,7 @@ class image_converter:
     # Task 1
 
     #Set the joints according to the sinusodial positions
+    '''
     joint2Val = Float64() #Create Float
     joint2Val.data = (pi/2) * sin((pi/15) * rospy.get_time()) #Set floats values
     self.joint2_pub.publish(joint2Val) #Publish float to joint
