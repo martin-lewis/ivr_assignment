@@ -122,6 +122,8 @@ class image_converter:
   def detect_target(self, img):
     template =cv2.imread("~/catkin_ws/src/ivr_assignment/template-sphere.png", 0) #Loads the template
     thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     matching = cv2.matchTemplate(thresh, template, 1) #Performs matching between the thresholded data and the template
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(matching) #Gets the results of the matching
     width, height = template.shape[::-1] #Details of the template to generate the centre
@@ -130,6 +132,8 @@ class image_converter:
   def detect_box(self, img):
     template =cv2.imread("~/catkin_ws/src/ivr_assignment/template-box.png", 0) #Loads the template
     thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     matching = cv2.matchTemplate(thresh, template, 1) #Performs matching between the thresholded data and the template
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(matching) #Gets the results of the matching
     width, height = template.shape[::-1] #Details of the template to generate the centre
