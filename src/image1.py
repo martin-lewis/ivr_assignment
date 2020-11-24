@@ -9,7 +9,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
-from math import sin, pi, sqrt, acos
+from math import sin, pi, sqrt, acos, atan2
 from kinematics import calculate_all
 
 class image_converter:
@@ -213,17 +213,24 @@ class image_converter:
   def calc_joint_angles(self,bluePos,greenPos,redPos):
     #Joint 1
     blue2green = greenPos - bluePos
+    '''
     normToXZAxis = [0,1,0]
     projGreenXZAxis = self.projectionOntoPlane(blue2green, normToXZAxis)
     joint2Angle = self.angleBetweenVectors(blue2green, projGreenXZAxis)
     if greenPos[1] > 0 :
       joint2Angle = -1 * joint2Angle
+    '''
+    joint2Angle = atan2(blue2green[2], blue2green[1]) - pi/2
     #Joint 2
+    '''
     normToYZAxis = [1,0,0]
     projGreenYZAxis = self.projectionOntoPlane(blue2green, normToYZAxis)
     joint3Angle = self.angleBetweenVectors(blue2green, projGreenYZAxis)
     if greenPos[0] < 0:
       joint3Angle = -1 * joint3Angle
+    '''
+    blue2green = self.rotateX(joint2Angle, blue2green)
+    joint3Angle = atan2(blue2green[2], blue2green[0]) - pi/2
     #Joint 3
     green2red = redPos - greenPos
     projg2rb2g = self.projection(green2red, blue2green)
@@ -231,6 +238,9 @@ class image_converter:
     #TODO: Work out which way its turned
     return np.array([joint2Angle, joint3Angle, joint4Angle])
 
+  def rotateX(self, theta, coords):
+    matrix = np.array([[1, 0, 0], [0, np.cos(theta), -1 * np.cos(theta)], [0, np.sin(theta), np.cos(theta)]])
+    return np.dot(matrix, coords)
 
   def euclideanNorm(self, vector):
     total = 0
