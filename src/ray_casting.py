@@ -10,16 +10,7 @@ import math
 
 hfov = 1.3962634
 focal_length = (800/(math.tan(hfov/2)))/2 
-print(focal_length)
-# retrieves projection matrix for each camera
-# FOV = 2 arctan (x / (2 f))
-# 90 = 2 arctan (x / 2f)
-# 90 / 2 = arctan(x/2f)
-# tan(90/2) = x / 2f
-# 1/tan(90/2) = 2f/x
-# x/tan(90/2) = 2f
-# x/(tan(90/2)*2) = f
-# f= (A/2)/tan(90)
+
 
 def get_projection_matrix(camera_axis="x"):
     
