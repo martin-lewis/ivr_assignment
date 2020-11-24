@@ -41,6 +41,16 @@ class image_converter:
     self.est_joint3_pub = rospy.Publisher("observed/joint3", Float64, queue_size=10)
     self.est_joint4_pub = rospy.Publisher("observed/joint4", Float64, queue_size=10)
 
+    #Dictionary Holds the last 5 positions of each item
+    self.prevPos = {
+      self.detect_yellow : [],
+      self.detect_blue : [],
+      self.detect_green : [],
+      self.detect_red : [],
+      self.detect_box : [],
+      self.detect_target : []
+    }
+
     # Task 2
 
     #Publisher end effector positions
@@ -64,6 +74,8 @@ class image_converter:
   #Simple detection method
   def detect_yellow(self, img):
     thresh = cv2.inRange(img, (0,100,100), (10,145,145)) #Thresholds for values
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     kernel = np.ones((5, 5), np.uint8)
     result = cv2.dilate(thresh, kernel, iterations=3)
     M = cv2.moments(result)
@@ -73,6 +85,8 @@ class image_converter:
 
   def detect_blue(self, img):
     thresh = cv2.inRange(img, (100,0,0), (140,10,10))
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     kernel = np.ones((5, 5), np.uint8)
     result = cv2.dilate(thresh, kernel, iterations=3)
     M = cv2.moments(result)
@@ -82,6 +96,8 @@ class image_converter:
 
   def detect_green(self, img):
     thresh = cv2.inRange(img, (0,100,0), (10,145,10))
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     kernel = np.ones((5, 5), np.uint8)
     result = cv2.dilate(thresh, kernel, iterations=3)
     M = cv2.moments(result)
@@ -91,6 +107,8 @@ class image_converter:
 
   def detect_red(self, img):
     thresh = cv2.inRange(img, (0,0,100), (10,10,145))
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     kernel = np.ones((5, 5), np.uint8)
     result = cv2.dilate(thresh, kernel, iterations=3)
     M = cv2.moments(result)
@@ -124,26 +142,64 @@ class image_converter:
 
   #Detects the position (w.r.t. yellow joint in metres) of an object on the y axis given a function that returns its position and the view of the y-plane
   def detect_in_yaxis(self, detect_func, img_yplane):
-    distance = detect_func(img_yplane) - self.detect_yellow(img_yplane)
-    return distance[0] * self.pixel2metre(img_yplane)
+    try :
+      distance = detect_func(img_yplane) - self.detect_yellow(img_yplane)
+      return distance[0] * self.pixel2metre(img_yplane)
+    except:
+      return None
 
   #Detects the position (w.r.t. yellow joint in metres) of an object on the z axis given a function that returns its position and the view of the y-plane
   def detect_in_zaxis(self, detect_func, img_yplane):
-    distance = self.detect_yellow(img_yplane) - detect_func(img_yplane)
-    return distance[1] * self.pixel2metre(img_yplane)
+    try:
+      distance = self.detect_yellow(img_yplane) - detect_func(img_yplane)
+      return distance[1] * self.pixel2metre(img_yplane)
+    except:
+      return None
   
   #Detects the position (w.r.t. yellow joint in metres) of an object on the x axis given a function that returns its position and the view of the x-plane
   def detect_in_xaxis(self, detect_func, img_xplane):
-    distance = detect_func(img_xplane) - self.detect_yellow(img_xplane)
-    return distance[0] * self.pixel2metre(img_xplane)
+    try:
+      distance = detect_func(img_xplane) - self.detect_yellow(img_xplane)
+      return distance[0] * self.pixel2metre(img_xplane)
+    except:
+      return None
 
   #Detects in 3D the position of an object w.r.t. the yellow joint
   def detect_in_3D(self, detect_func, img_xplane, img_yplane):
     x = self.detect_in_xaxis(detect_func, img_xplane)
+    if (x == None):
+      print("X Fail")
+      x = self.estimateNextPos(detect_func, 0)
     y = self.detect_in_yaxis(detect_func, img_yplane)
-    z = (self.detect_in_zaxis(detect_func, img_yplane) + self.detect_in_zaxis(detect_func, img_xplane) ) / 2
+    if (y == None):
+      print("Y Fail")
+      y = self.estimateNextPos(detect_func, 1)
+    try:
+      z = (self.detect_in_zaxis(detect_func, img_yplane) + self.detect_in_zaxis(detect_func, img_xplane) ) / 2
+    except:
+      print("Z fail")
+      z = self.estimateNextPos(detect_func, 2)
+
+    #Adds this value to the dict containing the previous values
+    if (len(self.prevPos[detect_func]) < 5):
+      self.prevPos[detect_func].append(np.array([x,y,z]))
+    else:
+      del (self.prevPos[detect_func])[0]
+      self.prevPos[detect_func].append(np.array([x,y,z]))
+
     return np.array([x,y,z])
 
+  def estimateNextPos(self, detect_func, axis): #Note for axis 0 = x 1 = y 2 = z
+    previous = self.prevPos[detect_func] #Gets the set of previous coordinates
+    previousVals = [] #List to hold the ones we want
+    for coords in previous:
+      previousVals.append(coords[axis]) #Gets the value for the axis we want
+    aveChange = 0
+    for i in range(len(previousVals) - 2):
+      aveChange = aveChange + previousVals[i] - previousVals[i+1] #Works out the change between each pair
+    ave = aveChange / (len(previousVals) - 2) # find the average change
+    #print(len(previousVals))
+    return previousVals[len(previousVals) - 1] + ave #Add the average change to the last value
 
   def find_blob_positions(self):
     bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
