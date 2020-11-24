@@ -284,58 +284,74 @@ class image_converter:
     q_d = q_est + (dt * dq_d)  
     return q_d
 
-  # Recieve data from camera 1, process it, and publish
-  def callback1(self,data):
-    # Recieve the image
+  def set_joints(self,q2,q3,q4):
+    joint2Val = Float64() #Create Float
+    joint2Val.data = q2
+    self.joint2_pub.publish(joint2Val) #Publish float to joint
+    joint3Val = Float64()
+    joint3Val.data = q3
+    self.joint3_pub.publish(joint3Val)
+    joint4Val = Float64()
+    joint4Val.data = q4
+    self.joint4_pub.publish(joint4Val)
+
+  def task_1(self,data):
+
     try:
       self.cv_image1 = self.bridge.imgmsg_to_cv2(data, "bgr8")
     except CvBridgeError as e:
       print(e)
-    
-    # Task 1
-    #Set the joints according to the sinusodial positions
-    
-    joint2Val = Float64() #Create Float
-    joint2Val.data = pi/2#(pi/2) * sin((pi/15) * rospy.get_time()) #Set floats values
-    self.joint2_pub.publish(joint2Val) #Publish float to joint
-    joint3Val = Float64()
-    joint3Val.data = 0#(pi/2) * sin((pi/18) * rospy.get_time())
-    self.joint3_pub.publish(joint3Val)
-    joint4Val = Float64()
-    joint4Val.data = 0#(pi/2) * sin((pi/20) * rospy.get_time())
-    self.joint4_pub.publish(joint4Val)
 
-    # im1=cv2.imshow('window1', self.cv_image1)
-    # im2=cv2.imshow('window2', self.cv_image2)
-    # cv2.waitKey(1)
+
+    #Set the joints according to the sinusodial positions
+    target_q2 = (pi/2) * sin((pi/15) * rospy.get_time())
+    target_q3 = (pi/2) * sin((pi/18) * rospy.get_time())
+    target_q4 = (pi/2) * sin((pi/20) * rospy.get_time())
+
+    self.set_joints(target_q2,
+                    target_q3,
+                    target_q4)
+
 
     bluePos,greenPos,redPos = self.find_blob_positions()
     joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
 
-    if self.fk is not None:
-      print("observed      :" + str(redPos))
-      print("fk observed   :" + str(self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2]).flatten()) )
-      print("fk real       :" + str(self.fk(0,joint2Val.data,joint3Val.data ,joint4Val.data).flatten()) )
-      print("diff real fk  :" + str(np.linalg.norm(self.fk(0,joint2Val.data,joint3Val.data ,joint4Val.data).flatten() - redPos)) )
-
-      print("\n")
-    redVec = np.array([[redPos[0]],
-                        [redPos[1]],
-                        [redPos[2]]])
 
     #Publising estimated joint angles
     self.est_joint2_pub.publish(joint_angles[0])
     self.est_joint3_pub.publish(joint_angles[1])
     self.est_joint4_pub.publish(joint_angles[2])
 
-    # print(joint_angles)
-    actual_angles = np.array([(joint2Val.data), (joint3Val.data), (joint4Val.data)])
-    # print(joint_angles - actual_angles)
-    # Task 2
-    # if self.fk is not None:
-    #   self.publish_forward_kinematics_results(
-    #     0,joint2Val.data,joint3Val.data,joint4Val.data,redVec)
-  
+    # for debugging
+
+
+    if self.fk is not None:
+      fk_observed= self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2])
+      fk_real = self.fk(0,target_q2,target_q3 ,target_q4)
+      print("observed      :" + str(redPos))
+      print("fk observed   :" + str(fk_observed.flatten()) )
+      print("fk real       :" + str(fk_real.flatten()) )
+      print("diff real fk  :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
+
+      print("\n")
+
+    # Publish the results
+    try: 
+      self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
+    except CvBridgeError as e:
+      print(e)
+
+
+  def task_2(self,data):
+    # Recieve the image
+    try:
+      self.cv_image1 = self.bridge.imgmsg_to_cv2(data, "bgr8")
+    except CvBridgeError as e:
+      print(e)
+
+    bluePos,greenPos,redPos = self.find_blob_positions()
+    joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
+
     target_end_pos = np.array([0,0,0])
     q_d = self.closed_control(target_end_pos,redPos,np.array([0,joint_angles[0],joint_angles[1],joint_angles[2]]))
     # q_d_2 = self.closed_control_w_secondary_task(target_end_pos,redPos,np.array([0,joint_angles[0],joint_angles[1],joint_angles[2]]),
@@ -347,7 +363,14 @@ class image_converter:
       self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
     except CvBridgeError as e:
       print(e)
-  
+    
+  # Recieve data from camera 1, process it, and publish
+  def callback1(self,data):
+
+    self.task_1(data)
+    # self.task_2(data)
+
+
   #Additional Callback used to get the image from the other cameras (camera2)
   def callback2(self,data):
     try:
