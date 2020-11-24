@@ -209,9 +209,11 @@ class image_converter:
 
     #TODO: tweak those 
     # P gain
-    K_p = np.array([[10,0,0],[0,10,0],[0,0,10]])
+    k_p = 0.1
+    k_d = 0.01
+    K_p = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
     # D gain
-    K_d = np.array([[0.1,0,0],[0,0.1,0],[0,0,0.1]])
+    K_d = np.array([[k_d,0,0],[0,k_d,0],[0,0,k_d]])
 
     # loop time
     cur_time = np.array([rospy.get_time()])
@@ -223,13 +225,14 @@ class image_converter:
     error_d = ((pos_d - pos) - self.error)/dt
     # estimate error
     self.error = pos_d-pos
+    print(error_d)
     # pseudo inverse
     
     J_inv = np.linalg.pinv(self.jacobian(q_est[0],q_est[1],q_est[2],q_est[3]))  
 
     # angular velocity of joints  
-    error_p_gain = np.dot(K_p,self.error.transpose())
-    error_d_gain = np.dot(K_d,error_d.transpose())
+    error_p_gain = np.dot(K_p,self.error)
+    error_d_gain = np.dot(K_d,error_d)
     error_sum = error_d_gain + error_p_gain
     dq_d =np.dot(J_inv,(error_sum))
     # new joint angles 
@@ -242,6 +245,8 @@ class image_converter:
     K_p = np.array([[10,0,0],[0,10,0],[0,0,10]])
     # D gain
     K_d = np.array([[0.1,0,0],[0,0.1,0],[0,0,0.1]])
+    # step rate
+    k_0 = 0.1
 
     # loop time
     cur_time = np.array([rospy.get_time()])
@@ -267,9 +272,6 @@ class image_converter:
     # the change in angles 
     delta_q = q_est - self.q_prev
     self.q_prev = q_est
-
-    # step rate
-    k_0 = 1
 
     # q0_d TODO: deal with division by zero
     q0_d = delta_w/delta_q * k_0
@@ -349,14 +351,20 @@ class image_converter:
     except CvBridgeError as e:
       print(e)
 
-    bluePos,greenPos,redPos = self.find_blob_positions()
-    joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
+    try:
+      bluePos,greenPos,redPos = self.find_blob_positions()
+      joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
+    except:
+      joint_angles = self.q_prev
+      redPos = self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2]).flatten()
 
-    target_end_pos = np.array([0,0,0])
+    target_pos = self.detect_in_3D(self.detect_target, self.cv_image2, self.cv_image1)
+    # target_pos= np.array([0,6.5,2.5])
+    target_end_pos = target_pos
     q_d = self.closed_control(target_end_pos,redPos,np.array([0,joint_angles[0],joint_angles[1],joint_angles[2]]))
     # q_d_2 = self.closed_control_w_secondary_task(target_end_pos,redPos,np.array([0,joint_angles[0],joint_angles[1],joint_angles[2]]),
     #   (lambda a: 0))
-
+    self.set_joints(q_d[1],q_d[2],q_d[3])
 
     # Publish the results
     try: 
@@ -367,8 +375,8 @@ class image_converter:
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
 
-    self.task_1(data)
-    # self.task_2(data)
+    # self.task_1(data)
+    self.task_2(data)
 
 
   #Additional Callback used to get the image from the other cameras (camera2)
