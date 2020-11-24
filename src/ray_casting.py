@@ -7,7 +7,20 @@ from std_msgs.msg import String
 from kinematics import calculate_all
 import math
 
+
+hfov = 1.3962634
+focal_length = (800/(math.tan(hfov/2)))/2 
+print(focal_length)
 # retrieves projection matrix for each camera
+# FOV = 2 arctan (x / (2 f))
+# 90 = 2 arctan (x / 2f)
+# 90 / 2 = arctan(x/2f)
+# tan(90/2) = x / 2f
+# 1/tan(90/2) = 2f/x
+# x/tan(90/2) = 2f
+# x/(tan(90/2)*2) = f
+# f= (A/2)/tan(90)
+
 def get_projection_matrix(camera_axis="x"):
     
     if (camera_axis != "x") and (camera_axis != "y"):
@@ -15,13 +28,37 @@ def get_projection_matrix(camera_axis="x"):
         raise Exception
 
     camera_x = camera_axis == "x"
-    hfov = 1.3962634
-
-    focal_length = (800/2) / math.tan(hfov/2)
-    optical_centre = np.array([0.5,0.5])
+    
+    optical_centre = np.array([400,400])
     return np.array([[focal_length,    0,              optical_centre[0]],
-                    [0,               focal_length,   optical_centre[0]],
+                    [0,               focal_length,   optical_centre[1]],
                     [0,               0,              1]])
 
 
-print(get_projection_matrix())
+def get_world_to_camera_origin_matrix(camera_axis="x"):
+    if (camera_axis != "x") and (camera_axis != "y"):
+        print("invalid camera axis")
+        raise Exception
+
+
+
+
+# the height of the maximum rectangle seen by camera at distance of 1m
+fh = 2.0 * math.tan(hfov * 0.5)
+
+# fh=5.67*2
+print(fh/2)
+# corners of the image (with the coordinates Y facing down, and Z away from the camera)
+
+# center
+print(get_projection_matrix()@np.array([[0],[0],[1]]))
+
+# top left (image 0,0 )
+print(get_projection_matrix()@np.array([[-fh/2],[-fh/2],[1]]))
+# top right 
+print(get_projection_matrix()@np.array([[fh/2],[-fh/2],[1]]))
+# bottom right 
+print(get_projection_matrix()@np.array([[fh/2],[fh/2],[1]]))
+# bottom left
+print(get_projection_matrix()@np.array([[-fh/2],[fh/2],[1]]))
+
