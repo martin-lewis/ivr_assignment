@@ -20,6 +20,36 @@
 
 \maketitle
 
+\section*{2.1}
+
+The first part of this section was straight forward calculating the position of the angles based of the sinusoidal positions. This achieved with rospy's get time function and sin.
+
+The second part was the more difficult part. I tried a few different methods, optimisation, projections but finally settling for using trigonometry. Using atan2 to find the values of
+joint 2 and 3. Joint 2 is found with atan on the y and z components of the vector between the blue and green blobs. Then the vector is rotated by the found angle
+and then atan is run on the x and z components for joint3. This does however mean that the uncertainly and error in the angle of joint 2 is passed to joint3.
+
+You can see the two example sections of an rqt\_plot graph from joints 2 and 3 in figures 1 and 2.
+
+\begin{figure}
+    \includegraphics[width=\linewidth]{joint2.png}
+    \caption{Joint2 Angle}
+\end{figure}
+
+\begin{figure}
+    \includegraphics[width=\linewidth]{joint3.png}
+    \caption{Joint3 Angle}
+\end{figure}
+
+Joint 4 however is calculated by a projection. This means its not reliant on the first two angles. It works out the angle between the vector between the
+green and red blobs and the vector between the blue and green ones.
+
+\begin{figure}
+    \includegraphics[width=\linewidth]{joint4.png}
+    \caption{Joint4 Angle}
+\end{figure}
+
+\section*{2.2}
+
 \section*{3.1}
 
 The forward kinematics, was derived using d-h parameters and a sympy script which parsed it to avoid any mathematical errors (The said script is available in the repository). The final forward kinematics translation component looks like the following:
