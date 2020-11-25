@@ -41,6 +41,11 @@ class image_converter:
     self.est_joint3_pub = rospy.Publisher("observed/joint3", Float64, queue_size=10)
     self.est_joint4_pub = rospy.Publisher("observed/joint4", Float64, queue_size=10)
 
+    #Publish the estimated position of the target
+    self.est_target_x = rospy.Publisher("observed/target_x", Float64, queue_size=10)
+    self.est_target_y = rospy.Publisher("observed/target_y", Float64, queue_size=10)
+    self.est_target_z = rospy.Publisher("observed/target_z", Float64, queue_size=10)
+
     #Dictionary Holds the last 5 positions of each item
     self.prevPos = {
       self.detect_yellow : [],
@@ -400,6 +405,12 @@ class image_converter:
     self.est_joint2_pub.publish(joint_angles[0])
     self.est_joint3_pub.publish(joint_angles[1])
     self.est_joint4_pub.publish(joint_angles[2])
+
+    #Target Stuff
+    targetPos = self.triangulate_in_3D(self.detect_target, self.cv_image2, self.cv_image1)
+    self.est_target_x.publish(targetPos[0])
+    self.est_target_y.publish(targetPos[1])
+    self.est_target_z.publish(targetPos[2])
 
     # for debugging
     if self.fk is not None:
