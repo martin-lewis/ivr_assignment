@@ -245,10 +245,10 @@ class image_converter:
     screen_pos_y = detect_func(img_yplane)
 
     if(screen_pos_x is None):
-      screen_pos_x = self.estimateNextPos(detect_func,img_xplane)
+      screen_pos_x = self.estimateNextPos(detect_func,0)
 
     if(screen_pos_y is None):
-      screen_pos_y = self.estimateNextPos(detect_func,img_yplane)
+      screen_pos_y = self.estimateNextPos(detect_func,1)
 
     ray_x = ray_casting.screen_to_world_ray(self.cam_inv_int_matrix,self.camx_inv_ext_matrix,screen_pos_x)
     ray_y = ray_casting.screen_to_world_ray(self.cam_inv_int_matrix,self.camy_inv_ext_matrix,screen_pos_y)
