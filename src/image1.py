@@ -11,14 +11,13 @@ from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 from math import sin, pi, sqrt, acos, atan2
 from kinematics import calculate_all
+import ray_casting
 
 class image_converter:
 
   # Defines publisher and subscriber
   def __init__(self):
 
-
-    # Task 1
 
     # initialize the node named image_processing
     rospy.init_node('image_processing', anonymous=True)
@@ -49,10 +48,15 @@ class image_converter:
       self.detect_green : [],
       self.detect_red : [],
       self.detect_box : [],
-      self.detect_target : []
+      self.detect_target : [],
     }
 
-    # Task 2
+    # ray casting setup
+    self.cam_inv_int_matrix = np.linalg.inv(ray_casting.get_projection_matrix())
+    self.camx_inv_ext_matrix = ray_casting.get_camera_to_world_origin_matrix(camera_axis="x")
+    self.camy_inv_ext_matrix = ray_casting.get_camera_to_world_origin_matrix(camera_axis="y")
+    self.camx_full_matrix = ray_casting.get_camera_matrix(camera_axis="x")
+    self.camy_full_matrix = ray_casting.get_camera_matrix(camera_axis="y")
 
     #Publisher end effector positions
     self.end_effector_observed = rospy.Publisher("observed/end_effector", Float64MultiArray, queue_size=0)
@@ -72,7 +76,9 @@ class image_converter:
     # joint angles in last loop
     self.q_prev_observed = np.array([0,0,0])
 
-    self.q_prev_cl = np.array([0,0,0,0])
+    self.q_prev_cl = np.array([0,0,0])
+
+
 
   #Simple detection method
   def detect_yellow(self, img):
@@ -195,6 +201,21 @@ class image_converter:
       self.prevPos[detect_func].append(np.array([x,y,z]))
 
     return np.array([x,y,z])
+  
+
+  #WARNING: TODO: make sure yellow blob is origin (pretty sure it works)
+  def triangulate_in_3D(self,detect_func, img_xplane, img_yplane):
+    
+    
+    screen_pos_x = detect_func(img_xplane)
+    screen_pos_y = detect_func(img_yplane)
+
+    ray_x = ray_casting.screen_to_world_ray(self.cam_inv_int_matrix,self.camx_inv_ext_matrix,screen_pos_x)
+    ray_y = ray_casting.screen_to_world_ray(self.cam_inv_int_matrix,self.camy_inv_ext_matrix,screen_pos_y)
+
+    approx_intersect = ray_casting.ray_intersect(ray_x,ray_y)
+
+    return approx_intersect
 
   def estimateNextPos(self, detect_func, axis): #Note for axis 0 = x 1 = y 2 = z
     previous = self.prevPos[detect_func] #Gets the set of previous coordinates
@@ -209,9 +230,16 @@ class image_converter:
     return previousVals[len(previousVals) - 1] + ave #Add the average change to the last value
 
   def find_blob_positions(self):
+    
+    """
     bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
     greenPos = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
     redPos = self.detect_in_3D(self.detect_red, self.cv_image2, self.cv_image1)
+    """
+    
+    bluePos = self.triangulate_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
+    greenPos = self.triangulate_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
+    redPos = self.triangulate_in_3D(self.detect_red, self.cv_image2, self.cv_image1)
     
     return (bluePos,greenPos,redPos)
 
@@ -278,12 +306,11 @@ class image_converter:
   # pos_d-    desired position, 
   # pos-      current end effector position
   # q_est-    estimated joint angles
-  def closed_control(self,pos_d,pos,q_est,secondary_objective_function):
-
+  def closed_control(self,pos_d,pos,q1,q2,q3,secondary_objective_function=None):
     #TODO: tweak those 
     # P gain
-    k_p = 0.5
-    k_d = 20
+    k_p = 2
+    k_d = 0.01
     k_0 = 0
     K_p = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
     # D gain
@@ -300,78 +327,32 @@ class image_converter:
     # estimate error
     self.error = pos_d-pos
     # pseudo inverse
-    J = self.jacobian(q_est[0],q_est[1],q_est[2],q_est[3])
+    J = self.jacobian(0,q1,q2,q3)
     J_inv = np.linalg.pinv(J)  
 
-      # work out the partial derivative of w with respect to q (i.e. q0_d)
-    # numerical approximation, i.e. w_now - w_before/ delta_q
-    w = secondary_objective_function(q_est)
-    delta_w = w - self.w_prev 
-    self.w_prev = w
+    sg_term = 0
+    if secondary_objective_function is not None:
+        # work out the partial derivative of w with respect to q (i.e. q0_d)
+      # numerical approximation, i.e. w_now - w_before/ delta_q
+      w = secondary_objective_function(q_est)
+      delta_w = w - self.w_prev 
+      self.w_prev = w
 
-    # the change in angles 
-    delta_q = q_est - self.q_prev_cl
-    self.q_prev_cl = q_est
+      # the change in angles 
+      delta_q = q_est - self.q_prev_cl
+      self.q_prev_cl = q_est
 
-    # q0_d TODO: deal with division by zero
-    q0_d = delta_w/(delta_q + 0.000001) * k_0
+      # q0_d TODO: deal with division by zero
+      q0_d = delta_w/(delta_q + 0.000001) * k_0
+
+      sg_term = ((np.eye(4) - J_inv@J) @ q0_d)
 
     # angular velocity of joints  
     errs = (K_p @ np.reshape(self.error,(3,1))) + (K_d @ np.reshape(error_d,(3,1))) 
-    dq_d = (J_inv @ errs).flatten() + ((np.eye(4) - J_inv@J) @ q0_d)
+    dq_d = (J_inv @ errs).flatten() + sg_term
     # new joint angles 
-    q_d = q_est + (dt * dq_d)*0.001
- 
+    q_d = np.array([q1,q2,q3]) + (dt * dq_d)[1:]
     return q_d
-
-  def closed_control_w_secondary_task(self,pos_d,pos,q_est,secondary_objective_function):
-    pass
-    # #TODO: tweak those 
-    # # P gain
-    # K_p = np.array([[10,0,0],[0,10,0],[0,0,10]])
-    # # D gain
-    # K_d = np.array([[0.1,0,0],[0,0.1,0],[0,0,0.1]])
-    # # step rate
-    # k_0 = 0.1
-
-    # # loop time
-    # cur_time = np.array([rospy.get_time()])
-    # dt = cur_time - self.time_previous_step
-    # self.time_previous_step = cur_time
-
-    # # partial derivative of (pos_d - pos) with respect to time
-    # # (numerical approximation) 
-    # error_d = ((pos_d - pos) - self.error)/dt
-    # # estimate error
-    # self.error = pos_d-pos
-    # # pseudo inverse
-    
-    # J = self.jacobian(q_est[0],q_est[1],q_est[2],q_est[3])
-    # J_inv = np.linalg.pinv(J)  
-
-    # # work out the partial derivative of w with respect to q (i.e. q0_d)
-    # # numerical approximation, i.e. w_now - w_before/ delta_q
-    # w = secondary_objective_function(q_est)
-
-    # delta_w = w - self.w_prev 
-    # self.w_prev = w
-
-    # # the change in angles 
-    # delta_q = q_est - self.q_prev_cl
-    # self.q_prev_cl = q_est
-
-    # # q0_d TODO: deal with division by zero
-    # q0_d = delta_w/(delta_q+0.0000001) * k_0
-
-    # # angular velocity of joints  
-    # secondary_goal_term = (np.eye(4) - J_inv@J) @ q0_d
-    # error_p_gain = np.dot(K_p,self.error.transpose())
-    # error_d_gain = np.dot(K_d,error_d.transpose())
-    # error_sum = error_d_gain + error_p_gain 
-    # dq_d =np.dot(J_inv,(error_sum))+ secondary_goal_term
-    # # new joint angles 
-    # q_d = q_est + (dt * dq_d)  
-    # return q_d
 
   def set_joints(self,q2,q3,q4,q0=None):
     joint2Val = Float64() #Create Float
@@ -417,16 +398,14 @@ class image_converter:
     self.est_joint4_pub.publish(joint_angles[2])
 
     # for debugging
-
-
     if self.fk is not None:
       fk_observed= self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2])
       fk_real = self.fk(0,target_q2,target_q3 ,target_q4)
-      print("observed      :" + str(redPos))
-      print("fk observed   :" + str(fk_observed.flatten()) )
-      print("fk real       :" + str(fk_real.flatten()) )
-      print("diff real fk  :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
-
+      print("observed     :" + str(redPos))
+      print("non-trian    :" + str(self.detect_in_3D(self.detect_red,self.cv_image2,self.cv_image1)))
+      # print("fk observed     :" + str(fk_observed.flatten()) )
+      print("fk real      :" + str(fk_real.flatten()) )
+      print("diff real fk :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
       print("\n")
 
     # Publish the results
@@ -443,14 +422,10 @@ class image_converter:
     except CvBridgeError as e:
       print(e)
 
-    try:
-      bluePos,greenPos,redPos = self.find_blob_positions()
-      joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
-    except:
-      joint_angles = self.q_prev
-      redPos = self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2]).flatten()
-
-    # joint_angles = ((joint_angles - self.q_prev_observed)*0.6 + self.q_prev_observed) 
+    
+    bluePos,greenPos,redPos = self.find_blob_positions()
+    joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
+    # joint_angles = ((joint_angles - self.q_prev_observed)*0.2 + self.q_prev_observed) 
     # self.q_prev_observed = joint_angles
     
     # target_pos = self.detect_in_3D(self.detect_target, self.cv_image2, self.cv_image1)
@@ -458,22 +433,29 @@ class image_converter:
     target_q3 = (pi/2) * sin((pi/18) * rospy.get_time())
     target_q4 = (pi/2) * sin((pi/20) * rospy.get_time())
 
-    target_end_pos = np.array([target_q2,target_q3,target_q4])
+    target_end_pos = self.fk(0,target_q2,target_q3,target_q4).flatten()
+    # print(target_end_pos)
+    # print(np.linalg.norm(target_end_pos - redPos))
 
-    print(np.linalg.norm(target_end_pos - redPos))
+    #WARNING: DO NOT USE ANGLE 0
+    q_d = self.closed_control(target_end_pos,
+      redPos,
+      q1=joint_angles[0],
+      q2=joint_angles[1],
+      q3=joint_angles[2])
+      # lambda x: np.sqrt(np.linalg.det(self.jacobian(0,x[0],x[1],x[2]) @ self.jacobian(0,x[0],x[1],x[2]).T)))
+    
 
-    q_d = self.closed_control(target_end_pos,redPos,np.array([0,joint_angles[0],joint_angles[1],joint_angles[2]]),
-      lambda x: np.sqrt(np.linalg.det(self.jacobian(0,x[1],x[2],x[3]) @ self.jacobian(0,x[1],x[2],x[3]).T)))
 
-    self.set_joints(q_d[1],q_d[2],q_d[3])
+    print(q_d)
+    self.set_joints(q_d[0],q_d[1],q_d[2])
     # attempt at smoothing noise
     # q_next = (self.q_prev[1:4] -  q_d[1:4]) * 0.1 + self.q_prev[1:4]
     # self.set_joints(q_next[0],q_next[1],q_next[2])
     # self.q_prev = np.array([0,q_next[0],q_next[1],q_next[2]])
 
 
-  
-
+    
     # Publish the results
     try: 
       self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
@@ -486,6 +468,7 @@ class image_converter:
     # self.task_1(data)
     self.task_2(data)
     # self.set_joints(0,0,0)
+  
 
 
   #Additional Callback used to get the image from the other cameras (camera2)
