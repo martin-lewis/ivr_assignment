@@ -43,12 +43,12 @@ class image_converter:
 
     #Dictionary Holds the last 5 positions of each item
     self.prevPos = {
-      self.detect_yellow : [],
-      self.detect_blue : [],
-      self.detect_green : [],
-      self.detect_red : [],
-      self.detect_box : [],
-      self.detect_target : [],
+      self.detect_yellow : [np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0])],
+      self.detect_blue : [np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0])],
+      self.detect_green : [np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0])],
+      self.detect_red : [np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0])],
+      self.detect_box : [np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0])],
+      self.detect_target : [np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0])],
     }
 
     # ray casting setup
@@ -210,6 +210,12 @@ class image_converter:
     screen_pos_x = detect_func(img_xplane)
     screen_pos_y = detect_func(img_yplane)
 
+    if(screen_pos_x is None):
+      screen_pos_x = self.estimateNextPos(detect_func,img_xplane)
+
+    if(screen_pos_y is None):
+      screen_pos_y = self.estimateNextPos(detect_func,img_yplane)
+
     ray_x = ray_casting.screen_to_world_ray(self.cam_inv_int_matrix,self.camx_inv_ext_matrix,screen_pos_x)
     ray_y = ray_casting.screen_to_world_ray(self.cam_inv_int_matrix,self.camy_inv_ext_matrix,screen_pos_y)
 
@@ -307,10 +313,15 @@ class image_converter:
   # pos-      current end effector position
   # q_est-    estimated joint angles
   def closed_control(self,pos_d,pos,q1,q2,q3,secondary_objective_function=None):
+
+    # tetsing
+    q1,q2,q3 = self.q_prev_observed
+
     #TODO: tweak those 
+    q_est = np.array([q1,q2,q3])
     # P gain
-    k_p = 2
-    k_d = 0.01
+    k_p = 1
+    k_d = 0.1
     k_0 = 0
     K_p = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
     # D gain
@@ -344,7 +355,7 @@ class image_converter:
 
       # q0_d TODO: deal with division by zero
       q0_d = delta_w/(delta_q + 0.000001) * k_0
-
+      q0_d = np.array([0,q0_d[0],q0_d[1],q0_d[2]])
       sg_term = ((np.eye(4) - J_inv@J) @ q0_d)
 
     # angular velocity of joints  
@@ -352,7 +363,19 @@ class image_converter:
     dq_d = (J_inv @ errs).flatten() + sg_term
     # new joint angles 
     q_d = np.array([q1,q2,q3]) + (dt * dq_d)[1:]
+    
+    q_d = self.limit_q(q_d)
+
+    self.q_prev_observed = q_d 
+
+  
     return q_d
+  def limit_q(self,q):
+    return np.array([x for x in q])
+  
+  def limit_angle(self,a):
+    if a > pi/2 or a < -pi/2:
+      return min(max(a,pi/2),-pi/2) 
 
   def set_joints(self,q2,q3,q4,q0=None):
     joint2Val = Float64() #Create Float
@@ -428,22 +451,22 @@ class image_converter:
     # joint_angles = ((joint_angles - self.q_prev_observed)*0.2 + self.q_prev_observed) 
     # self.q_prev_observed = joint_angles
     
-    # target_pos = self.detect_in_3D(self.detect_target, self.cv_image2, self.cv_image1)
-    target_q2 = (pi/2) * sin((pi/15) * rospy.get_time())
-    target_q3 = (pi/2) * sin((pi/18) * rospy.get_time())
-    target_q4 = (pi/2) * sin((pi/20) * rospy.get_time())
+    target_pos = self.detect_in_3D(self.detect_target, self.cv_image2, self.cv_image1)
+    # target_q2 = (pi/2) * sin((pi/15) * rospy.get_time())
+    # target_q3 = (pi/2) * sin((pi/18) * rospy.get_time())
+    # target_q4 = (pi/2) * sin((pi/20) * rospy.get_time())
 
-    target_end_pos = self.fk(0,target_q2,target_q3,target_q4).flatten()
+    target_end_pos = target_pos#self.fk(0,target_q2,target_q3,target_q4).flatten()
     # print(target_end_pos)
     # print(np.linalg.norm(target_end_pos - redPos))
 
     #WARNING: DO NOT USE ANGLE 0
     q_d = self.closed_control(target_end_pos,
       redPos,
-      q1=joint_angles[0],
-      q2=joint_angles[1],
-      q3=joint_angles[2])
-      # lambda x: np.sqrt(np.linalg.det(self.jacobian(0,x[0],x[1],x[2]) @ self.jacobian(0,x[0],x[1],x[2]).T)))
+      joint_angles[0],
+      joint_angles[1],
+      joint_angles[2],
+      lambda x: -x[0] -x[1] - x[2]   )
     
 
 
