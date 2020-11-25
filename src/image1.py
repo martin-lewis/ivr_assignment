@@ -9,7 +9,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
-from math import sin, pi, sqrt, acos
+from math import sin, pi, sqrt, acos, atan2
 from kinematics import calculate_all
 
 class image_converter:
@@ -42,6 +42,16 @@ class image_converter:
     self.est_joint3_pub = rospy.Publisher("observed/joint3", Float64, queue_size=10)
     self.est_joint4_pub = rospy.Publisher("observed/joint4", Float64, queue_size=10)
 
+    #Dictionary Holds the last 5 positions of each item
+    self.prevPos = {
+      self.detect_yellow : [],
+      self.detect_blue : [],
+      self.detect_green : [],
+      self.detect_red : [],
+      self.detect_box : [],
+      self.detect_target : []
+    }
+
     # Task 2
 
     #Publisher end effector positions
@@ -67,6 +77,8 @@ class image_converter:
   #Simple detection method
   def detect_yellow(self, img):
     thresh = cv2.inRange(img, (0,100,100), (10,145,145)) #Thresholds for values
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     kernel = np.ones((5, 5), np.uint8)
     result = cv2.dilate(thresh, kernel, iterations=3)
     M = cv2.moments(result)
@@ -76,6 +88,8 @@ class image_converter:
 
   def detect_blue(self, img):
     thresh = cv2.inRange(img, (100,0,0), (140,10,10))
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     kernel = np.ones((5, 5), np.uint8)
     result = cv2.dilate(thresh, kernel, iterations=3)
     M = cv2.moments(result)
@@ -85,6 +99,8 @@ class image_converter:
 
   def detect_green(self, img):
     thresh = cv2.inRange(img, (0,100,0), (10,145,10))
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     kernel = np.ones((5, 5), np.uint8)
     result = cv2.dilate(thresh, kernel, iterations=3)
     M = cv2.moments(result)
@@ -94,6 +110,8 @@ class image_converter:
 
   def detect_red(self, img):
     thresh = cv2.inRange(img, (0,0,100), (10,10,145))
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     kernel = np.ones((5, 5), np.uint8)
     result = cv2.dilate(thresh, kernel, iterations=3)
     M = cv2.moments(result)
@@ -105,6 +123,8 @@ class image_converter:
   def detect_target(self, img):
     template =cv2.imread("~/catkin_ws/src/ivr_assignment/template-sphere.png", 0) #Loads the template
     thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     matching = cv2.matchTemplate(thresh, template, 1) #Performs matching between the thresholded data and the template
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(matching) #Gets the results of the matching
     width, height = template.shape[::-1] #Details of the template to generate the centre
@@ -113,6 +133,8 @@ class image_converter:
   def detect_box(self, img):
     template =cv2.imread("~/catkin_ws/src/ivr_assignment/template-box.png", 0) #Loads the template
     thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
+    if (sum(sum(thresh)) == 0): #If it is obscured
+      return None #Return none
     matching = cv2.matchTemplate(thresh, template, 1) #Performs matching between the thresholded data and the template
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(matching) #Gets the results of the matching
     width, height = template.shape[::-1] #Details of the template to generate the centre
@@ -127,26 +149,64 @@ class image_converter:
 
   #Detects the position (w.r.t. yellow joint in metres) of an object on the y axis given a function that returns its position and the view of the y-plane
   def detect_in_yaxis(self, detect_func, img_yplane):
-    distance = detect_func(img_yplane) - self.detect_yellow(img_yplane)
-    return distance[0] * self.pixel2metre(img_yplane)
+    try :
+      distance = detect_func(img_yplane) - self.detect_yellow(img_yplane)
+      return distance[0] * self.pixel2metre(img_yplane)
+    except:
+      return None
 
   #Detects the position (w.r.t. yellow joint in metres) of an object on the z axis given a function that returns its position and the view of the y-plane
   def detect_in_zaxis(self, detect_func, img_yplane):
-    distance = self.detect_yellow(img_yplane) - detect_func(img_yplane)
-    return distance[1] * self.pixel2metre(img_yplane)
+    try:
+      distance = self.detect_yellow(img_yplane) - detect_func(img_yplane)
+      return distance[1] * self.pixel2metre(img_yplane)
+    except:
+      return None
   
   #Detects the position (w.r.t. yellow joint in metres) of an object on the x axis given a function that returns its position and the view of the x-plane
   def detect_in_xaxis(self, detect_func, img_xplane):
-    distance = detect_func(img_xplane) - self.detect_yellow(img_xplane)
-    return distance[0] * self.pixel2metre(img_xplane)
+    try:
+      distance = detect_func(img_xplane) - self.detect_yellow(img_xplane)
+      return distance[0] * self.pixel2metre(img_xplane)
+    except:
+      return None
 
   #Detects in 3D the position of an object w.r.t. the yellow joint
   def detect_in_3D(self, detect_func, img_xplane, img_yplane):
     x = self.detect_in_xaxis(detect_func, img_xplane)
+    if (x == None):
+      print("X Fail")
+      x = self.estimateNextPos(detect_func, 0)
     y = self.detect_in_yaxis(detect_func, img_yplane)
-    z = (self.detect_in_zaxis(detect_func, img_yplane) + self.detect_in_zaxis(detect_func, img_xplane) ) / 2
+    if (y == None):
+      print("Y Fail")
+      y = self.estimateNextPos(detect_func, 1)
+    try:
+      z = (self.detect_in_zaxis(detect_func, img_yplane) + self.detect_in_zaxis(detect_func, img_xplane) ) / 2
+    except:
+      print("Z fail")
+      z = self.estimateNextPos(detect_func, 2)
+
+    #Adds this value to the dict containing the previous values
+    if (len(self.prevPos[detect_func]) < 5):
+      self.prevPos[detect_func].append(np.array([x,y,z]))
+    else:
+      del (self.prevPos[detect_func])[0]
+      self.prevPos[detect_func].append(np.array([x,y,z]))
+
     return np.array([x,y,z])
 
+  def estimateNextPos(self, detect_func, axis): #Note for axis 0 = x 1 = y 2 = z
+    previous = self.prevPos[detect_func] #Gets the set of previous coordinates
+    previousVals = [] #List to hold the ones we want
+    for coords in previous:
+      previousVals.append(coords[axis]) #Gets the value for the axis we want
+    aveChange = 0
+    for i in range(len(previousVals) - 2):
+      aveChange = aveChange + previousVals[i] - previousVals[i+1] #Works out the change between each pair
+    ave = aveChange / (len(previousVals) - 2) # find the average change
+    #print(len(previousVals))
+    return previousVals[len(previousVals) - 1] + ave #Add the average change to the last value
 
   def find_blob_positions(self):
     bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
@@ -158,17 +218,24 @@ class image_converter:
   def calc_joint_angles(self,bluePos,greenPos,redPos):
     #Joint 1
     blue2green = greenPos - bluePos
+    '''
     normToXZAxis = [0,1,0]
     projGreenXZAxis = self.projectionOntoPlane(blue2green, normToXZAxis)
     joint2Angle = self.angleBetweenVectors(blue2green, projGreenXZAxis)
     if greenPos[1] > 0 :
       joint2Angle = -1 * joint2Angle
+    '''
+    joint2Angle = atan2(blue2green[2], blue2green[1]) - pi/2
     #Joint 2
+    '''
     normToYZAxis = [1,0,0]
     projGreenYZAxis = self.projectionOntoPlane(blue2green, normToYZAxis)
     joint3Angle = self.angleBetweenVectors(blue2green, projGreenYZAxis)
     if greenPos[0] < 0:
       joint3Angle = -1 * joint3Angle
+    '''
+    blue2green = self.rotateX(joint2Angle, blue2green)
+    joint3Angle = atan2(blue2green[2], blue2green[0]) - pi/2
     #Joint 3
     green2red = redPos - greenPos
     projg2rb2g = self.projection(green2red, blue2green)
@@ -176,6 +243,9 @@ class image_converter:
     #TODO: Work out which way its turned
     return np.array([joint2Angle, joint3Angle, joint4Angle])
 
+  def rotateX(self, theta, coords):
+    matrix = np.array([[1, 0, 0], [0, np.cos(theta), -1 * np.cos(theta)], [0, np.sin(theta), np.cos(theta)]])
+    return np.dot(matrix, coords)
 
   def euclideanNorm(self, vector):
     total = 0
