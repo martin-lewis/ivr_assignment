@@ -458,6 +458,8 @@ class image_converter:
     self.est_target_z.publish(targetPos[2])
     # print("observed ang :" +str(joint_angles))
     # for debugging
+
+    '''
     if self.fk is not None:
       fk_observed= self.fk(0,joint_angles[0],-joint_angles[1],-joint_angles[2])
       fk_real = self.fk(0,target_q2,target_q3 ,target_q4)
@@ -469,7 +471,7 @@ class image_converter:
       print("fk real      :" + str(fk_real.flatten()) )
       # print("diff real fk :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
       print("\n")
-
+    '''
     # Publish the results
     try: 
       self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
