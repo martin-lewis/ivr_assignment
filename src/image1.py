@@ -31,7 +31,8 @@ class image_converter:
     # initialize the bridge between openCV and ROS
     self.bridge = CvBridge()
 
-    #Publisher each of the 3 joints
+    #Publisher each of the 4 joints
+    self.joint1_pub = rospy.Publisher("/robot/joint1_position_controller/command", Float64, queue_size=10)
     self.joint2_pub = rospy.Publisher("/robot/joint2_position_controller/command", Float64, queue_size=10)
     self.joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
     self.joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
@@ -211,8 +212,8 @@ class image_converter:
 
     #TODO: tweak those 
     # P gain
-    k_p = 1
-    k_d = 0.01
+    k_p = 0.5
+    k_d = 20
     k_0 = 0
     K_p = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
     # D gain
@@ -302,7 +303,7 @@ class image_converter:
     # q_d = q_est + (dt * dq_d)  
     # return q_d
 
-  def set_joints(self,q2,q3,q4):
+  def set_joints(self,q2,q3,q4,q0=None):
     joint2Val = Float64() #Create Float
     joint2Val.data = q2
     self.joint2_pub.publish(joint2Val) #Publish float to joint
@@ -312,6 +313,11 @@ class image_converter:
     joint4Val = Float64()
     joint4Val.data = q4
     self.joint4_pub.publish(joint4Val)
+    
+    if q0 is not None:
+      joint1Val = Float64() #Create Float
+      joint1Val.data = q2
+      self.joint1_pub.publish(joint1Val) #Publish float to joint
 
   def task_1(self,data):
 
@@ -374,8 +380,8 @@ class image_converter:
       joint_angles = self.q_prev
       redPos = self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2]).flatten()
 
-    joint_angles = ((joint_angles - self.q_prev_observed) + self.q_prev_observed) 
-    self.q_prev_observed = joint_angles
+    # joint_angles = ((joint_angles - self.q_prev_observed)*0.6 + self.q_prev_observed) 
+    # self.q_prev_observed = joint_angles
     
     # target_pos = self.detect_in_3D(self.detect_target, self.cv_image2, self.cv_image1)
     target_q2 = (pi/2) * sin((pi/15) * rospy.get_time())
@@ -384,10 +390,10 @@ class image_converter:
 
     target_end_pos = np.array([target_q2,target_q3,target_q4])
 
-    print(target_end_pos)
+    print(np.linalg.norm(target_end_pos - redPos))
 
     q_d = self.closed_control(target_end_pos,redPos,np.array([0,joint_angles[0],joint_angles[1],joint_angles[2]]),
-      lambda x: np.sqrt(np.linalg.det(self.jacobian(0,x[0],x[1],x[3]) @ self.jacobian(0,x[0],x[1],x[3]).T)))
+      lambda x: np.sqrt(np.linalg.det(self.jacobian(0,x[1],x[2],x[3]) @ self.jacobian(0,x[1],x[2],x[3]).T)))
 
     self.set_joints(q_d[1],q_d[2],q_d[3])
     # attempt at smoothing noise
