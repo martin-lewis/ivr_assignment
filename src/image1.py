@@ -116,7 +116,7 @@ class image_converter:
     
   #Simple detection method
   def detect_yellow(self, img):
-    thresh = cv2.inRange(img, (0,100,100), (10,145,145)) #Thresholds for values
+    thresh = cv2.inRange(img, (0,100,100), (10,255,255)) #Thresholds for values
     if (sum(sum(thresh)) == 0): #If it is obscured
       return None #Return none
     kernel = np.ones((5, 5), np.uint8)
@@ -127,7 +127,7 @@ class image_converter:
     return np.array([xPos, yPos]) #Positions returned
 
   def detect_blue(self, img):
-    thresh = cv2.inRange(img, (100,0,0), (140,10,10))
+    thresh = cv2.inRange(img, (100,0,0), (255,10,10))
     if (sum(sum(thresh)) == 0): #If it is obscured
       return None #Return none
     kernel = np.ones((5, 5), np.uint8)
@@ -138,7 +138,7 @@ class image_converter:
     return np.array([xPos, yPos])
 
   def detect_green(self, img):
-    thresh = cv2.inRange(img, (0,100,0), (10,145,10))
+    thresh = cv2.inRange(img, (0,100,0), (10,255,10))
     if (sum(sum(thresh)) == 0): #If it is obscured
       return None #Return none
     kernel = np.ones((5, 5), np.uint8)
@@ -149,7 +149,7 @@ class image_converter:
     return np.array([xPos, yPos])
 
   def detect_red(self, img):
-    thresh = cv2.inRange(img, (0,0,100), (10,10,145))
+    thresh = cv2.inRange(img, (0,0,100), (10,10,255))
     if (sum(sum(thresh)) == 0): #If it is obscured
       return None #Return none
     kernel = np.ones((5, 5), np.uint8)
