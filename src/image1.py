@@ -243,10 +243,10 @@ class image_converter:
     screen_pos_y = detect_func(img_yplane)
 
     if(screen_pos_x is None):
-      screen_pos_x = self.estimateNextPos(detect_func,img_xplane)
+      screen_pos_x = self.estimateNextPos(detect_func,0)
 
     if(screen_pos_y is None):
-      screen_pos_y = self.estimateNextPos(detect_func,img_yplane)
+      screen_pos_y = self.estimateNextPos(detect_func,1)
 
     ray_x = ray_casting.screen_to_world_ray(self.cam_inv_int_matrix,self.camx_inv_ext_matrix,screen_pos_x)
     ray_y = ray_casting.screen_to_world_ray(self.cam_inv_int_matrix,self.camy_inv_ext_matrix,screen_pos_y)
@@ -461,6 +461,8 @@ class image_converter:
     self.est_target_z.publish(targetPos[2])
     # print("observed ang :" +str(joint_angles))
     # for debugging
+
+    '''
     if self.fk is not None:
       fk_observed= self.fk(0,joint_angles[0],-joint_angles[1],-joint_angles[2])
       fk_real = self.fk(0,target_q2,target_q3 ,target_q4)
@@ -472,7 +474,7 @@ class image_converter:
       print("fk real      :" + str(fk_real.flatten()) )
       # print("diff real fk :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
       print("\n")
-
+    '''
     # Publish the results
     try: 
       self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
