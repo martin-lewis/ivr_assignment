@@ -41,6 +41,11 @@ class image_converter:
     self.est_joint3_pub = rospy.Publisher("observed/joint3", Float64, queue_size=10)
     self.est_joint4_pub = rospy.Publisher("observed/joint4", Float64, queue_size=10)
 
+    #Publish the estimated position of the target
+    self.est_target_x = rospy.Publisher("observed/target_x", Float64, queue_size=10)
+    self.est_target_y = rospy.Publisher("observed/target_y", Float64, queue_size=10)
+    self.est_target_z = rospy.Publisher("observed/target_z", Float64, queue_size=10)
+
     #Dictionary Holds the last 5 positions of each item
     self.prevPos = {
       self.detect_yellow : [np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0])],
@@ -268,12 +273,16 @@ class image_converter:
     if greenPos[0] < 0:
       joint3Angle = -1 * joint3Angle
     '''
-    blue2green = self.rotateX(joint2Angle, blue2green)
+    blue2green = self.rotateX(-joint2Angle, blue2green)
     joint3Angle = atan2(blue2green[2], blue2green[0]) - pi/2
     #Joint 3
     green2red = redPos - greenPos
     projg2rb2g = self.projection(green2red, blue2green)
-    joint4Angle = self.angleBetweenVectors(green2red, projg2rb2g)
+    if (self.euclideanNorm(green2red + projg2rb2g) < self.euclideanNorm(green2red)):
+      joint4Angle = pi /2 - self.angleBetweenVectors(green2red, projg2rb2g)
+    else :
+      joint4Angle = self.angleBetweenVectors(green2red, projg2rb2g)
+
     #TODO: Work out which way its turned
     return np.array([joint2Angle, joint3Angle, joint4Angle])
 
@@ -419,6 +428,12 @@ class image_converter:
     self.est_joint2_pub.publish(joint_angles[0])
     self.est_joint3_pub.publish(joint_angles[1])
     self.est_joint4_pub.publish(joint_angles[2])
+
+    #Target Stuff
+    targetPos = self.triangulate_in_3D(self.detect_target, self.cv_image2, self.cv_image1)
+    self.est_target_x.publish(targetPos[0])
+    self.est_target_y.publish(targetPos[1])
+    self.est_target_z.publish(targetPos[2])
 
     # for debugging
     if self.fk is not None:
