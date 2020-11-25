@@ -18,7 +18,8 @@ class image_converter:
   # Defines publisher and subscriber
   def __init__(self):
 
-
+    self.fk,self.jacobian,self.vk = None,None,None 
+    self.first_time = True 
     # initialize the node named image_processing
     rospy.init_node('image_processing', anonymous=True)
     # initialize a publisher to send images from camera1 to a topic named image_topic1
@@ -46,6 +47,16 @@ class image_converter:
     self.est_target_y = rospy.Publisher("observed/target_y", Float64, queue_size=10)
     self.est_target_z = rospy.Publisher("observed/target_z", Float64, queue_size=10)
 
+    #real target coordinates
+    self.t1_sub = rospy.Subscriber("/target/x_position_controller/command", Float64,self.o_x)
+    self.t2_sub = rospy.Subscriber("/target/y_position_controller/command", Float64,self.o_y)
+    self.t3_sub = rospy.Subscriber("/target/z_position_controller/command", Float64,self.o_z)
+    self.o1_sub = rospy.Subscriber("/target2/x2_position_controller/command", Float64,self.t_x)
+    self.o2_sub = rospy.Subscriber("/target2/y2_position_controller/command", Float64,self.t_y)
+    self.o3_sub = rospy.Subscriber("/target2/z2_position_controller/command", Float64,self.t_z)
+    self.obstacle_pos = np.array([0.0,0.0,0.0])
+    self.target_pos = np.array([0.0,0.0,0.0])
+
     #Dictionary Holds the last 5 positions of each item
     self.prevPos = {
       self.detect_yellow : [np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0])],
@@ -67,24 +78,42 @@ class image_converter:
     self.end_effector_observed = rospy.Publisher("observed/end_effector", Float64MultiArray, queue_size=0)
     self.end_effector_calculated = rospy.Publisher("calculated/end_effector", Float64MultiArray, queue_size=0)
 
-    self.fk,self.jacobian,self.vk = None,None,None 
 
-    self.fk,self.jacobian,self.vk = calculate_all()
 
     # initial time
     self.time_previous_step = np.array([rospy.get_time()])
     # the vector from current to desired position in the last loop
-    self.error = np.array([0,0,0])
+    self.error = np.array([0.0,0.0,0.0])
 
     # secondary objective function
     self.w_prev = 0
     # joint angles in last loop
-    self.q_prev_observed = np.array([0,0,0])
+    self.q_prev_observed = np.array([0.0,0.0,0.0])
 
-    self.q_prev_cl = np.array([0,0,0])
+    self.q_prev_cl = np.array([0.0,0.0,0.0])
 
 
+    self.fk,self.jacobian,self.vk = calculate_all()
 
+
+  def o_x(self,data):
+    self.obstacle_pos[0] = float(data.data)
+
+  def o_y(self,data):
+    self.obstacle_pos[1] = float(data.data)
+
+  def o_z(self,data):
+    self.obstacle_pos[2] = float(data.data) - 1.25
+
+  def t_x(self,data):
+    self.target_pos[0] =float(data.data)
+
+  def t_y(self,data):
+    self.target_pos[1] = float(data.data)
+
+  def t_z(self,data):
+    self.target_pos[2] = float(data.data)- 1.25
+    
   #Simple detection method
   def detect_yellow(self, img):
     thresh = cv2.inRange(img, (0,100,100), (10,145,145)) #Thresholds for values
@@ -132,7 +161,7 @@ class image_converter:
 
   #Detects the orange sphere that is the target
   def detect_target(self, img):
-    template =cv2.imread("~/catkin_ws/src/ivr_assignment/template-sphere.png", 0) #Loads the template
+    template =cv2.imread("/home/maks/catkin_ws/src/ivr_assignment/template-sphere.png", 0) #Loads the template
     thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
     if (sum(sum(thresh)) == 0): #If it is obscured
       return None #Return none
@@ -142,7 +171,7 @@ class image_converter:
     return np.array([min_loc[0] + width/2, min_loc[1] + height/2]) #Returns the centre of the target
 
   def detect_box(self, img):
-    template =cv2.imread("~/catkin_ws/src/ivr_assignment/template-box.png", 0) #Loads the template
+    template =cv2.imread("/home/maks/catkin_ws/src/ivr_assignment/template-box.png", 0) #Loads the template
     thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
     if (sum(sum(thresh)) == 0): #If it is obscured
       return None #Return none
@@ -247,7 +276,6 @@ class image_converter:
     greenPos = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
     redPos = self.detect_in_3D(self.detect_red, self.cv_image2, self.cv_image1)
     """
-    
     bluePos = self.triangulate_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
     greenPos = self.triangulate_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
     redPos = self.triangulate_in_3D(self.detect_red, self.cv_image2, self.cv_image1)
@@ -321,17 +349,14 @@ class image_converter:
   # pos_d-    desired position, 
   # pos-      current end effector position
   # q_est-    estimated joint angles
-  def closed_control(self,pos_d,pos,q1,q2,q3,secondary_objective_function=None):
-
-    # tetsing
-    q1,q2,q3 = self.q_prev_observed
+  def closed_control(self,pos_d,pos,q1,q2,q3,obstacle_pos=None):
 
     #TODO: tweak those 
     q_est = np.array([q1,q2,q3])
     # P gain
-    k_p = 1
-    k_d = 0.1
-    k_0 = 0
+    k_p = 0.4 #0.3
+    k_d = 0.2 #0.2
+    k_0 = 0 #0.1
     K_p = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
     # D gain
     K_d = np.array([[k_d,0,0],[0,k_d,0],[0,0,k_d]])
@@ -351,10 +376,11 @@ class image_converter:
     J_inv = np.linalg.pinv(J)  
 
     sg_term = 0
-    if secondary_objective_function is not None:
+    if obstacle_pos is not None:
         # work out the partial derivative of w with respect to q (i.e. q0_d)
       # numerical approximation, i.e. w_now - w_before/ delta_q
-      w = secondary_objective_function(q_est)
+      w = np.linalg.norm(pos - obstacle_pos)
+      print(w)
       delta_w = w - self.w_prev 
       self.w_prev = w
 
@@ -372,11 +398,8 @@ class image_converter:
     dq_d = (J_inv @ errs).flatten() + sg_term
     # new joint angles 
     q_d = np.array([q1,q2,q3]) + (dt * dq_d)[1:]
-    
-    q_d = self.limit_q(q_d)
 
-    self.q_prev_observed = q_d 
-
+    # q_d = self.limit_q(q_d)
   
     return q_d
   def limit_q(self,q):
@@ -423,7 +446,6 @@ class image_converter:
     bluePos,greenPos,redPos = self.find_blob_positions()
     joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
 
-
     #Publising estimated joint angles
     self.est_joint2_pub.publish(joint_angles[0])
     self.est_joint3_pub.publish(joint_angles[1])
@@ -434,16 +456,18 @@ class image_converter:
     self.est_target_x.publish(targetPos[0])
     self.est_target_y.publish(targetPos[1])
     self.est_target_z.publish(targetPos[2])
-
+    # print("observed ang :" +str(joint_angles))
     # for debugging
     if self.fk is not None:
-      fk_observed= self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2])
+      fk_observed= self.fk(0,joint_angles[0],-joint_angles[1],-joint_angles[2])
       fk_real = self.fk(0,target_q2,target_q3 ,target_q4)
+      print("\n")
+
       print("observed     :" + str(redPos))
       print("non-trian    :" + str(self.detect_in_3D(self.detect_red,self.cv_image2,self.cv_image1)))
-      # print("fk observed     :" + str(fk_observed.flatten()) )
+      # print("fk observed  :" + str(fk_observed.flatten()) )
       print("fk real      :" + str(fk_real.flatten()) )
-      print("diff real fk :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
+      # print("diff real fk :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
       print("\n")
 
     # Publish the results
@@ -460,39 +484,28 @@ class image_converter:
     except CvBridgeError as e:
       print(e)
 
-    
     bluePos,greenPos,redPos = self.find_blob_positions()
-    joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
-    # joint_angles = ((joint_angles - self.q_prev_observed)*0.2 + self.q_prev_observed) 
-    # self.q_prev_observed = joint_angles
+
+    if self.first_time:
+      joint_angles = np.array([0.0,0.0,0.0])
+      self.set_joints(joint_angles[0],joint_angles[1],joint_angles[2])
+      self.first_time = False
+    else:
+      joint_angles = self.q_prev_observed
     
-    target_pos = self.detect_in_3D(self.detect_target, self.cv_image2, self.cv_image1)
-    # target_q2 = (pi/2) * sin((pi/15) * rospy.get_time())
-    # target_q3 = (pi/2) * sin((pi/18) * rospy.get_time())
-    # target_q4 = (pi/2) * sin((pi/20) * rospy.get_time())
-
-    target_end_pos = target_pos#self.fk(0,target_q2,target_q3,target_q4).flatten()
-    # print(target_end_pos)
-    # print(np.linalg.norm(target_end_pos - redPos))
-
+    target_end_pos = self.target_pos#self.triangulate_in_3D(self.detect_target, self.cv_image2, self.cv_image1)
+    obstacle_pos =self.obstacle_pos #self.triangulate_in_3D(self.detect_box, self.cv_image2, self.cv_image1)
+    print(target_end_pos)
     #WARNING: DO NOT USE ANGLE 0
-    q_d = self.closed_control(target_end_pos,
+    q_d = self.closed_control(obstacle_pos,
       redPos,
       joint_angles[0],
       joint_angles[1],
       joint_angles[2],
-      lambda x: -x[0] -x[1] - x[2]   )
+      obstacle_pos)
     
-
-
-    print(q_d)
+    self.q_prev_observed = q_d
     self.set_joints(q_d[0],q_d[1],q_d[2])
-    # attempt at smoothing noise
-    # q_next = (self.q_prev[1:4] -  q_d[1:4]) * 0.1 + self.q_prev[1:4]
-    # self.set_joints(q_next[0],q_next[1],q_next[2])
-    # self.q_prev = np.array([0,q_next[0],q_next[1],q_next[2]])
-
-
     
     # Publish the results
     try: 
@@ -502,6 +515,9 @@ class image_converter:
     
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
+    # print(self.fk)
+    if self.fk == None:
+      return
 
     # self.task_1(data)
     self.task_2(data)
