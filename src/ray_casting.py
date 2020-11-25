@@ -29,10 +29,10 @@ def get_world_to_camera_origin_matrix(camera_axis="x"):
 
     if camera_axis == "x":
         a,b,c = -math.pi/2, math.pi/2, 0
-        tx,ty,tz = 0,6,16
+        tx,ty,tz = 0,6-1.25,18
     else:
         a,b,c = -math.pi/2,math.pi/2,math.pi/2
-        tx,ty,tz = 0,6,16
+        tx,ty,tz = 0,6-1.25,18
 
     return np.array([[cos(a)*cos(b)*cos(c) - sin(a)*sin(c),    -cos(a)*cos(b)*cos(c) - sin(a)*cos(c), cos(a)*sin(b) ,   tx],
                     [sin(a)*cos(b)*cos(c) + cos(a)*sin(c), -sin(a)*cos(b)*cos(c) + cos(a)*cos(c),   sin(a)*sin(b),   ty],
@@ -62,7 +62,9 @@ def world_to_screen(matrix,point):
     return p / p[2,0]
 
 def screen_to_world_ray(inverse_projection_matrix,inverse_matrix_transform,point):
-
+    
+    if point.shape == (2,):
+        point = np.reshape(point,(2,1))
     # append homogenous coordinate to screen point
     h_point = np.append(point,np.array([[1]]),axis=0)
     # find direction of ray in world space
@@ -77,11 +79,20 @@ def screen_to_world_ray(inverse_projection_matrix,inverse_matrix_transform,point
     end_p_world = inverse_matrix_transform @ direction_h
     return np.array([start_p_world,end_p_world])
 
-def closestDistanceBetweenLines(a0,a1,b0,b1):
+
+def closestDistanceBetweenLines(a0,a1,b0,b1,clampAll=False,clampA0=False,clampA1=False,clampB0=False,clampB1=False):
 
     ''' Given two lines defined by numpy.array pairs (a0,a1,b0,b1)
         Return the closest points on each segment and their distance
     '''
+
+    # If clampAll=True, set all clamps to True
+    if clampAll:
+        clampA0=True
+        clampA1=True
+        clampB0=True
+        clampB1=True
+
 
     # Calculate denomitator
     A = a1 - a0
@@ -139,6 +150,37 @@ def closestDistanceBetweenLines(a0,a1,b0,b1):
     pB = b0 + (_B * t1) # Projected closest point on segment B
 
 
+    # Clamp projections
+    if clampA0 or clampA1 or clampB0 or clampB1:
+        if clampA0 and t0 < 0:
+            pA = a0
+        elif clampA1 and t0 > magA:
+            pA = a1
+        
+        if clampB0 and t1 < 0:
+            pB = b0
+        elif clampB1 and t1 > magB:
+            pB = b1
+            
+        # Clamp projection A
+        if (clampA0 and t0 < 0) or (clampA1 and t0 > magA):
+            dot = np.dot(_B,(pA-b0))
+            if clampB0 and dot < 0:
+                dot = 0
+            elif clampB1 and dot > magB:
+                dot = magB
+            pB = b0 + (_B * dot)
+    
+        # Clamp projection B
+        if (clampB0 and t1 < 0) or (clampB1 and t1 > magB):
+            dot = np.dot(_A,(pB-a0))
+            if clampA0 and dot < 0:
+                dot = 0
+            elif clampA1 and dot > magA:
+                dot = magA
+            pA = a0 + (_A * dot)
+
+    
     return pA,pB,np.linalg.norm(pA-pB)
 
 def ray_intersect(ray1,ray2):
@@ -148,7 +190,12 @@ def ray_intersect(ray1,ray2):
     b0 = ray2[0].flatten()
     b1 = ray2[1].flatten()
     pA,pB, dist = closestDistanceBetweenLines(a0,a1,b0,b1)
-    return (pB - pA)/2 + pA
+    #TODO: for some reason the above method, flips all components *shrug*, and y with x 
+    f = -((pB - pA)/2 + pA)
+    x = f[0]
+    f[0] = f[1]
+    f[1] = x
+    return f
     
 
 # # the height of the maximum rectangle seen by camera at distance of 1m
@@ -158,13 +205,22 @@ def ray_intersect(ray1,ray2):
 # middle_ray_x = screen_to_world_ray(
 #     np.linalg.inv(get_projection_matrix()),
 #     get_camera_to_world_origin_matrix("x"),
-#     np.array([[400],[300]]))
+#     np.array([[400],[400.76303918]]))
 # middle_ray_y = screen_to_world_ray(
 #     np.linalg.inv(get_projection_matrix()),
 #     get_camera_to_world_origin_matrix("y"),
-#     np.array([[400],[400]]))
+#     np.array([[400],[400.76303918]]))
 
 # print(middle_ray_x[1] - middle_ray_x[0])
 # print(middle_ray_y[1] - middle_ray_y[0])
 
-# print(ray_intersect(middle_ray_x,middle_ray_y))
+# print(ray_intersect(middle_ray_y,middle_ray_x))
+
+# print((world_to_screen(get_camera_matrix(camera_axis="x"),np.array([[0],[0],[0],[1]]))))
+
+middle_ray_y = screen_to_world_ray(
+    np.linalg.inv(get_projection_matrix()),
+    get_camera_to_world_origin_matrix("x"),
+    np.array([[600],[400]]))
+
+print(middle_ray_y[1]-middle_ray_y[0])
