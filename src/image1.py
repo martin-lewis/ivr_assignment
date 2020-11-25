@@ -12,6 +12,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from math import sin, pi, sqrt, acos, atan2
 from kinematics import calculate_all
 import ray_casting
+import time 
 
 class image_converter:
 
@@ -77,9 +78,6 @@ class image_converter:
     #Publisher end effector positions
     self.end_effector_observed = rospy.Publisher("observed/end_effector", Float64MultiArray, queue_size=0)
     self.end_effector_calculated = rospy.Publisher("calculated/end_effector", Float64MultiArray, queue_size=0)
-
-
-
     # initial time
     self.time_previous_step = np.array([rospy.get_time()])
     # the vector from current to desired position in the last loop
@@ -354,13 +352,19 @@ class image_converter:
     #TODO: tweak those 
     q_est = np.array([q1,q2,q3])
     # P gain
-    k_p = 0.4 #0.3
-    k_d = 0.2 #0.2
+    k_p = 0.3 #0.3
+    k_d = 0.3 #0.2
     k_0 = 0 #0.1
     K_p = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
     # D gain
     K_d = np.array([[k_d,0,0],[0,k_d,0],[0,0,k_d]])
 
+
+    if self.first_time:
+      self.error = np.array([0.0,0.0,0.0])
+      self.time_previous_step = np.array([rospy.get_time()])
+      return q_est
+      
     # loop time
     cur_time = np.array([rospy.get_time()])
     dt = cur_time - self.time_previous_step
@@ -380,7 +384,6 @@ class image_converter:
         # work out the partial derivative of w with respect to q (i.e. q0_d)
       # numerical approximation, i.e. w_now - w_before/ delta_q
       w = np.linalg.norm(pos - obstacle_pos)
-      print(w)
       delta_w = w - self.w_prev 
       self.w_prev = w
 
@@ -490,12 +493,13 @@ class image_converter:
       joint_angles = np.array([0.0,0.0,0.0])
       self.set_joints(joint_angles[0],joint_angles[1],joint_angles[2])
       self.first_time = False
+      
+      time.sleep(2)
     else:
-      joint_angles = self.q_prev_observed
+      joint_angles = self.q_prev_observed#self.calc_joint_angles(bluePos,greenPos,redPos)
     
     target_end_pos = self.target_pos#self.triangulate_in_3D(self.detect_target, self.cv_image2, self.cv_image1)
     obstacle_pos =self.obstacle_pos #self.triangulate_in_3D(self.detect_box, self.cv_image2, self.cv_image1)
-    print(target_end_pos)
     #WARNING: DO NOT USE ANGLE 0
     q_d = self.closed_control(obstacle_pos,
       redPos,
