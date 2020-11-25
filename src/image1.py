@@ -262,12 +262,16 @@ class image_converter:
     if greenPos[0] < 0:
       joint3Angle = -1 * joint3Angle
     '''
-    blue2green = self.rotateX(joint2Angle, blue2green)
+    blue2green = self.rotateX(-joint2Angle, blue2green)
     joint3Angle = atan2(blue2green[2], blue2green[0]) - pi/2
     #Joint 3
     green2red = redPos - greenPos
     projg2rb2g = self.projection(green2red, blue2green)
-    joint4Angle = self.angleBetweenVectors(green2red, projg2rb2g)
+    if (self.euclideanNorm(green2red + projg2rb2g) < self.euclideanNorm(green2red)):
+      joint4Angle = pi /2 - self.angleBetweenVectors(green2red, projg2rb2g)
+    else :
+      joint4Angle = self.angleBetweenVectors(green2red, projg2rb2g)
+
     #TODO: Work out which way its turned
     return np.array([joint2Angle, joint3Angle, joint4Angle])
 
