@@ -11,13 +11,18 @@ import os
 # creates lambda functions which give the forward kinematics, jacobian and velocity kinematics equations
 def calculate_all():
     q1,q2,q3,q4 = symbols("q_{1}"),symbols("q_{2}"),symbols("q_{3}"),symbols("q_{4}")
+
     q1_der,q2_der,q3_der,q4_der = symbols("\dot{q_{1}}"),symbols("\dot{q_{2}}"),symbols("\dot{q_{3}}"),symbols("\dot{q_{4}}")
 
     t1,t2,t3,t4 = getTransformationsFromDHTable(np.array([
-    [ -pi/2, 0,  2.5,   -pi/2 + q1],
-    [ pi/2, 0,  0,  -pi/2 + q2],
-    [ -pi/2, 3.5,    0,  q3],
-    [ 0,3, 0, q4]]))
+    [ -pi/2 ,      0,  2.5,   -pi/2 + q1],
+    [ pi/2  ,      0,    0,  -pi/2 + q2 ],
+    [ -pi/2 ,   3.5,     0,      q3     ],
+    [ 0     ,      3,    0,      q4    ]]))
+
+
+    # print((t1*Matrix([[0],[0],[0],[1]]).subs((q1,))))
+    # print(t1*t2*Matrix([[0],[0],[0],[1]]))
 
     full_fk=trigsimp((t1*t2*t3*t4),ratio=1)
     fk_translation = full_fk[0:3,3]
@@ -28,8 +33,9 @@ def calculate_all():
                         [q2_der],
                         [q3_der],
                         [q4_der]])
-
-    formatOutput(full_fk,jacobian,qderivative)
+                        
+    formatOutput(full_fk,jacobian)
+    
 
     return (lambdify([q1,q2,q3,q4],fk_translation,"numpy"),
             lambdify([q1,q2,q3,q4],jacobian,"numpy"),
@@ -54,7 +60,7 @@ def getTransformationsFromDHTable(dhTable):
         transformations.append(simplify(transformation,ratio=1))
     return transformations
 
-def formatOutput(fk,jacobian, qderivative):
+def formatOutput(fk,jacobian):
 
     base_dir = os.path.dirname(os.path.realpath(__file__)) + "/latex"
 
@@ -88,12 +94,6 @@ def formatOutput(fk,jacobian, qderivative):
         mat_str="array")
     )
 
-    f = open(base_dir + "/vk.tex","w")
-    f.write(latex(jacobian * qderivative,
-	mode="equation",
-        mat_delim="(",
-        mat_str="array")
-    )
 
 
 
