@@ -34,7 +34,7 @@ class image_converter:
       print(e)
     # Uncomment if you want to save the image
     #cv2.imwrite('image_copy.png', cv_image)
-    im2=cv2.imshow('window2', self.cv_image2)
+    # im2=cv2.imshow('window2', self.cv_image2)
     cv2.waitKey(1)
 
     # Publish the results
