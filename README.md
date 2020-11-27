@@ -11,3 +11,5 @@ Also please ensure all the files within ivr_assignment/src are set to be executa
 
 The requested code for Task 3 can be run by simply calling the command
 >rosrun ivr_assignment tasks_node.py
+
+If takes about 20-30 seconds to warm up, if it gets stuck try restarting it.
