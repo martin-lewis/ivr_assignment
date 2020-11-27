@@ -1,4 +1,4 @@
-\documentclass{report}
+\documentclass[11pt]{report}
 \usepackage[utf8]{inputenc}
 % \usepackage[landscape]{geometry}
 \usepackage{graphicx}
@@ -7,7 +7,8 @@
 \date{November 2020}
 \newcommand\scalemath[2]{\scalebox{#1}{\mbox{\ensuremath{\displaystyle #2}}}}
 \usepackage{amsmath}
-\usepackage[landscape,margin=0.5in]{geometry}
+\usepackage[margin=0.5in]{geometry}
+\usepackage{float}
 
 \let\cos\relax
 \let\sin\relax
@@ -18,24 +19,19 @@
 
 \begin{document}
 
-\maketitle
-
-\section*{Division of Labour}
-
-\begin{itemize}
-    \item Section 2 - Martin
-    \item Section 3 - Maks
-    \item Section 4 - Maks
-\end{itemize}
+% \maketitle
 
 \section*{Github}
+Sections 3,4 - s1751752
+Section 2 - \<Martin insert your student number\>
 
-Link to the github repository: https://github.com/martin-lewis/ivr\_assignment
+\noindLink to the github repository:  https://github.com/martin-lewis/ivrassignment
 
 \section*{2.1}
 
 The first part of this section was straight forward calculating the position of the angles based of the sinusoidal positions. This achieved with rospy's get\_time() function and sin.
-This was then published to the topics to get the robot moving.
+This was then published to the topics to 
+\noindent https://github.com/martin-leget the robot moving.
 
 The next section is getting the 3D coordinates from the 2 2D images. This was done initially with a naive system that assumed that the camera was always orthogonal,
 which it isn't. This worked fine for most cases except the extreme cases where the robot arm would point directly into a camera. This was replaced by a more complex
@@ -47,14 +43,12 @@ joint 2 and 3. Joint 2 is found with atan on the y and z components of the vecto
 and then atan is run on the x and z components for joint3. This does however mean that the uncertainly and error in the angle of joint 2 is passed to joint3.
 
 You can see the two example sections of an rqt\_plot graph from joints 2 and 3 in figures 1 and 2.
-
-\begin{figure}
+\begin{figure}[H]
     \includegraphics[width=\linewidth]{joint2.png}
     \caption{Joint2 Angle}
-    \label{fig:Something}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[H]
     \includegraphics[width=\linewidth]{joint3.png}
     \caption{Joint3 Angle}
 \end{figure}
@@ -77,18 +71,17 @@ frequently not quite correct, it usually in the correct ball park but not as acc
 I suspect that the source of error comes mainly from the fact that the target is usually high up in the cameras view and that this means it's at more of an angle
 reducing the accuracy of the algorithm in working out its Z coordinate.
 
-\begin{figure}
+\begin{figure}[H]
     \includegraphics[width=\linewidth]{target.png}
     \caption{Target Position (/observed/...) and actual position (/target/...)}
 \end{figure}
 
 % ----------------- 3.1----------------- 
 
-\newpage
 \section*{3.1 Forward Kinematics}
 \subsection*{Presentation of the forward kinematics equation}
 
-The forward kinematics, was derived using d-h parameters and a sympy script which parsed it to avoid any mathematical errors (The said script is available in the repository). The final forward kinematics translation component looks like the following:\\
+The final forward kinematics translation component looks like the following:\\
 
 
 \begin{equation*}
@@ -119,14 +112,11 @@ FK(q) =
 
 \subsection*{Comparing forward kinematics and vision algorithm's estimations of end-effector positions}
 
-The robot was set to the different joint positions given in figure below using a script which automatically set the robot's positions, waited for the arm to reach the target positions (3 seconds between each angle) and then stored the different predictions to a .tex file automatically.
-\\
-
-\noindent This was to avoid any human error and image synchronisation with the robot issues. In the far column euclidian distance is used to compare the different estimations. We can see that all the estimations are between 0.5 and 0.75 meters off each other, this is quite close however not ideal. The highest differences appear for angles which direct the end effector closer or further to only one of the cameras, the source of error here is clearly not the forward kinematics equation, since those are the configurations which are the most problematic for vision. The sources of error here are:
+The robot was set to the different joint positions given in figure below. In the far column Euclidean distance is shown to compare the different estimations. We can see that all the estimations are between 0.5 and 0.75 meters off each other, this is quite close however not ideal. The highest differences appear for angles which direct the end effector closer or further to only one of the cameras, the source of error here is clearly not the forward kinematics equation, since those are the configurations which are the most problematic for vision. The sources of error here are:
 \begin{itemize}
-    \item Obfuscation of the end effector by the robot. Both partial and full obfuscation causes: a shift in the CoM of the blobs, and loss of accurate information respectively in which case position data is extrapolated via average velocity of the past 5 measurements. This causes disparity between the vision and FK estimations
+    \item Obfuscation of the end effector by the robot. Both partial and full obfuscation causes: a shift in the CoM of the blobs, and loss of accurate information respectively.
     \item Lighting variation, some of the blobs will sometimes be shifted very slightly when the colours become more shaded, this adds to the error and is likely the reason a constant error is present (this could be fixed by using the HSI colour space for thresholding instead)
-    \item The shaking of the robot due to movement. Sometimes the robot will oscillate after performing a motion meaning that the values are slightly offset to the predicted FK positions, since the FK assumes a fixed frame at the bottom - but the base in the robot can move, causing the vision estimates to become more true than the FK estimates 
+
 \end{itemize}
 \begin{figure}[h]
 
@@ -150,7 +140,6 @@ The robot was set to the different joint positions given in figure below using a
 
 \end{figure}
 
-\newpage
 
 \section*{3.2 Closed-Loop Control}
 \subsection*{Presentation of the velocity kinematics calculation}
@@ -217,7 +206,29 @@ The change in q (or angular velocity of q) at each iteration can be defined as f
 \noindent $\dot{x}_{d}$ is the derivative of the end effector position and $K_{d}$,$K_{p}$ are the constants used to control the size of each step in relation to the derivative and proportional errors at each step respectively.
 
 \subsection*{Evaluation of control loop}
-(graphs)
+
+\begin{figure}[H]
+
+  \centering
+  \begin{minipage}[b]{0.44\textwidth}
+    \includegraphics[width=\textwidth]{3.2.x.png}
+    \caption{End effector x coordinate (/endpos/...) vs target sphere x coordinate (/target/...)}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.44\textwidth}
+    \includegraphics[width=\textwidth]{3.2.y.png}
+    \caption{End effector y coordinate (/endpos/...) vs target sphere y coordinate (/target/...)}
+  \end{minipage}
+\begin{minipage}[b]{0.44\textwidth}
+    \includegraphics[width=\textwidth]{3.2.z.png}
+    \caption{End effector z coordinate (/endpos/...) vs target sphere z coordinate (in world frame) (/target/...)}
+  \end{minipage}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+
+\end{figure}
 
 \section*{4.2 Null-space Control}
 \subsection*{Algorithm}
@@ -234,6 +245,23 @@ The only amendment to the previous algorithm needed to allow for a secondary tas
 \noindent with q,b here standing for the estimate joint configuration and position of the obstacle (box) respectively at the current iteration of the loop. This change results in the required avoidance behaviour.
 
 \subsection*{Plots}
-(graphs)
+
+\begin{figure}[H]
+
+  \centering
+  \begin{minipage}[b]{0.44\textwidth}
+    \includegraphics[width=\textwidth]{4.2.x.png}
+    \caption{End effector x coordinate (/endpos/...) vs target sphere and box x coordinate (/target/...)}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.44\textwidth}
+    \includegraphics[width=\textwidth]{4.2.y.png}
+    \caption{End effector y coordinate (/endpos/...) vs target sphere and box y coordinate (/target/...)}
+  \end{minipage}
+\begin{minipage}[b]{0.44\textwidth}
+    \includegraphics[width=\textwidth]{4.2.z.png}
+    \caption{End effector z coordinate (/endpos/...) vs target sphere and box z coordinate (in world frame) (/target/...)}
+  \end{minipage}
+\end{figure}
 
 \end{document}
