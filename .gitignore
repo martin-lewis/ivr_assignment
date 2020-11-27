@@ -1,0 +1,4 @@
+*.pyc
+report/main.aux
+report/main.dvi
+report/main.log

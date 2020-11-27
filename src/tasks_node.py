@@ -512,11 +512,6 @@ class task_node:
 
   def find_blob_positions(self):
     
-    """
-    bluePos = self.detect_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
-    greenPos = self.detect_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
-    redPos = self.detect_in_3D(self.detect_red, self.cv_image2, self.cv_image1)
-    """
     bluePos = self.triangulate_in_3D(self.detect_blue, self.cv_image2, self.cv_image1)
     greenPos = self.triangulate_in_3D(self.detect_green, self.cv_image2, self.cv_image1)
     redPos = self.triangulate_in_3D(self.detect_red, self.cv_image2, self.cv_image1)
@@ -525,35 +520,20 @@ class task_node:
 
   def calc_joint_angles(self,bluePos,greenPos,redPos):
     #Joint 1
-    blue2green = greenPos - bluePos
-    '''
-    normToXZAxis = [0,1,0]
-    projGreenXZAxis = self.projectionOntoPlane(blue2green, normToXZAxis)
-    joint2Angle = self.angleBetweenVectors(blue2green, projGreenXZAxis)
-    if greenPos[1] > 0 :
-      joint2Angle = -1 * joint2Angle
-    '''
-    joint2Angle = atan2(blue2green[2], blue2green[1]) - pi/2
+    blue2green = greenPos - bluePos #Forms vector representing the link
+    joint2Angle = atan2(blue2green[2], blue2green[1]) - pi/2 #Angle for joint2
     #Joint 2
-    '''
-    normToYZAxis = [1,0,0]
-    projGreenYZAxis = self.projectionOntoPlane(blue2green, normToYZAxis)
-    joint3Angle = self.angleBetweenVectors(blue2green, projGreenYZAxis)
-    if greenPos[0] < 0:
-      joint3Angle = -1 * joint3Angle
-    '''
-    blue2green = rotateX(-joint2Angle, blue2green)
-    joint3Angle = atan2(blue2green[2], blue2green[0]) - pi/2
+    blue2green = rotateX(-joint2Angle, blue2green) #Rotates the vector to remove the affect of joint2
+    joint3Angle = atan2(blue2green[2], blue2green[0]) - pi/2 #Angle for joint3
     #Joint 3
-    green2red = redPos - greenPos
-    projg2rb2g = projection(green2red, blue2green)
+    green2red = redPos - greenPos #Vector representing link
+    projg2rb2g = projection(green2red, blue2green) #Projections
     if (euclideanNorm(green2red + projg2rb2g) < euclideanNorm(green2red)):
-      joint4Angle = pi /2 - angleBetweenVectors(green2red, projg2rb2g)
+      joint4Angle = pi /2 - angleBetweenVectors(green2red, projg2rb2g) #Flipped if needed
     else :
       joint4Angle = angleBetweenVectors(green2red, projg2rb2g)
 
-    #TODO: Work out which way its turned
-    return np.array([joint2Angle, joint3Angle, joint4Angle])
+    return np.array([joint2Angle, joint3Angle, joint4Angle]) #Values returned
 
 
 
