@@ -24,19 +24,22 @@ import os
 class task_node:
 
 
+
   def main(self):
     if self.fk == None:
       return
 
     # self.task_1()
-    self.task2_1()
-    # self.task_2()
+    # self.task2_1()
+    # self.task_2_2()
+    self.task_3_1()
     # self.set_joints(0,0,0)
 
   def task_1(self):
 
 
-    #Set the joints according to the sinusodial positions
+    #Set the joints according to the sinusodial positions:
+
     target_q2 = (pi/2) * sin((pi/15) * rospy.get_time())
     target_q3 = (pi/2) * sin((pi/18) * rospy.get_time())
     target_q4 = (pi/2) * sin((pi/20) * rospy.get_time())
@@ -48,7 +51,6 @@ class task_node:
 
     bluePos,greenPos,redPos = self.find_blob_positions()
     joint_angles = (self.calc_joint_angles(bluePos,greenPos,redPos))
-
     #Publising estimated joint angles
     self.est_joint2_pub.publish(joint_angles[0])
     self.est_joint3_pub.publish(joint_angles[1])
@@ -64,23 +66,25 @@ class task_node:
 
     
     if self.fk is not None:
-      fk_observed= self.fk(0,joint_angles[0],-joint_angles[1],-joint_angles[2])
+      fk_observed= self.fk(0,joint_angles[0],joint_angles[1],joint_angles[2])
       fk_real = self.fk(0,target_q2,target_q3 ,target_q4)
       print("\n")
 
       print("observed     :" + str(redPos))
       # print("non-trian    :" + str(self.detect_in_3D(self.detect_red,self.cv_image2,self.cv_image1)))
       # print("fk observed  :" + str(fk_observed.flatten()) )
-      print("fk real      :" + str(fk_real.flatten()) )
-      print("diff real fk :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
+      # print("fk real      :" + str(fk_real.flatten()) )
+      # print("diff real fk :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
+      print("obs_angs  :" + str(joint_angles))
+      print("real_angs :" + str(target_q2) +"," +str(target_q3)+","+ str(target_q4))
       print("\n")
     
   def debug_display(self):
     mx = self.draw_masks(self.cv_image2,"xmask.png")
-    my = self.draw_masks(self.cv_image1,"ymask.png")
+    # my = self.draw_masks(self.cv_image1,"ymask.png")
 
-    cv2.imshow("yplane/xcam",cv2.addWeighted(self.cv_image2,0.3,mx,0.7,0))
-    cv2.imshow("xplane/ycam",cv2.addWeighted(self.cv_image1,0.3,my,0.7,0))
+    cv2.imshow("yplane/xcam",mx)#cv2.addWeighted(self.cv_image2,0.7,mx,0.3,0))
+    # cv2.imshow("xplane/ycam",cv2.addWeighted(self.cv_image1,0.7,my,0.3,0))
     cv2.waitKey(0)
 
   async def display_img_async(self,wname,img,time):
@@ -88,8 +92,6 @@ class task_node:
       cv2.waitKey(time * 1000)
       cv2.destroyAllWindows()
 
-  # Python 3.7+
-  # asyncio.run(main()
   # comparing FK position to observed position of end effector
   def task2_1(self):
 
@@ -144,7 +146,6 @@ class task_node:
       f.close()
       return
 
-    print(dt,angle_idx)
 
     if angle_idx < len(angles): 
       
@@ -185,25 +186,52 @@ class task_node:
       pass
 
 
-  def task_2(self):
+  def task_2_2(self):
 
-    bluePos,greenPos,redPos = self.find_blob_positions()
+    _,_,redPos = self.find_blob_positions()
     
     if self.first_time:
-      joint_angles = np.array([0.0,0.0,0.0])
+      self.q_prev_observed = np.array([0,0,0])
       self.set_joints(0,0,0,0)
       time.sleep(1)
 
       self.first_time = False
-      
+      return
     else:
-      joint_angles = self.q_prev_observed#
-    
-    target_end_pos = self.target_pos#self.triangulate_in_3D(self.detect_target, self.cv_image2, self.cv_image1) 
-    obstacle_pos = self.obstacle_pos#self.triangulate_in_3D(self.detect_box, self.cv_image2, self.cv_image1)
+      joint_angles  = self.real_joint_values
+
+    target_end_pos = self.triangulate_in_3D(self.detect_target, self.cv_image2, self.cv_image1) 
+    # print(target_end_pos)
     print(target_end_pos)
-    #WARNING: DO NOT USE ANGLE 0
-    q_d = self.closed_control(obstacle_pos,
+    q_d = self.closed_control(target_end_pos,
+      redPos,
+      joint_angles[0],
+      joint_angles[1],
+      joint_angles[2])
+
+    self.q_prev_observed = q_d
+
+    self.set_joints(q_d[0],q_d[1],q_d[2])
+
+  def task_3_1(self):
+
+    _,_,redPos = self.find_blob_positions()
+    
+    if self.first_time:
+      self.q_prev_observed = np.array([0,0,0])
+      self.set_joints(0,0,0,0)
+      time.sleep(1)
+
+      self.first_time = False
+      return
+    else:
+      joint_angles  = self.real_joint_values
+
+    target_end_pos = self.triangulate_in_3D(self.detect_target, self.cv_image2, self.cv_image1) 
+    obstacle_pos = self.triangulate_in_3D(self.detect_box, self.cv_image2, self.cv_image1) 
+    # print(target_end_pos)
+    print(target_end_pos)
+    q_d = self.closed_control(target_end_pos,
       redPos,
       joint_angles[0],
       joint_angles[1],
@@ -211,6 +239,7 @@ class task_node:
       obstacle_pos)
 
     self.q_prev_observed = q_d
+
     self.set_joints(q_d[0],q_d[1],q_d[2])
   
 
@@ -234,6 +263,7 @@ class task_node:
     self.task_context = {
       "task2_1-idx":-1,
       "task2_1-start-time":-1,
+      "task2_2-qs":[]
     }
     # prepare subscribers for both the images
     rospy.init_node('task_node', anonymous=True)
@@ -244,7 +274,7 @@ class task_node:
     self.ats = message_filters.ApproximateTimeSynchronizer([self.image_sub1,self.image_sub2],queue_size=1,slop=0.1,allow_headerless=True)
     self.ats.registerCallback(self.receive_stereo_image)
 
-    self.fk,self.jacobian,self.vk = None,None,None 
+    self.fk,self.jacobian,self.vk,self.green_transform = None,None,None,None
     self.first_time = True 
 
     # initialize the bridge between openCV and ROS
@@ -266,15 +296,12 @@ class task_node:
     self.est_target_y = rospy.Publisher("observed/target_y", Float64, queue_size=10)
     self.est_target_z = rospy.Publisher("observed/target_z", Float64, queue_size=10)
 
-    #real target coordinates
-    self.t1_sub = rospy.Subscriber("/target/x_position_controller/command", Float64,self.o_x)
-    self.t2_sub = rospy.Subscriber("/target/y_position_controller/command", Float64,self.o_y)
-    self.t3_sub = rospy.Subscriber("/target/z_position_controller/command", Float64,self.o_z)
-    self.o1_sub = rospy.Subscriber("/target2/x2_position_controller/command", Float64,self.t_x)
-    self.o2_sub = rospy.Subscriber("/target2/y2_position_controller/command", Float64,self.t_y)
-    self.o3_sub = rospy.Subscriber("/target2/z2_position_controller/command", Float64,self.t_z)
-    self.obstacle_pos = np.array([0.0,0.0,0.0])
-    self.target_pos = np.array([0.0,0.0,0.0])
+
+    self.q2_sub = rospy.Subscriber("/robot/joint2_position_controller/command", Float64,self.q_x)
+    self.q3_sub = rospy.Subscriber("/robot/joint3_position_controller/command", Float64,self.q_y)
+    self.q4_sub = rospy.Subscriber("/robot/joint4_position_controller/command", Float64,self.q_z)
+
+    self.real_joint_values = np.array([0.0,0.0,0.0])
 
     #Dictionary Holds the last 5 positions of each item
     self.prevPos = {
@@ -314,7 +341,7 @@ class task_node:
     self.q_prev_cl_output = np.array([0.0,0.0,0.0])
     self.set_joints(0,0,0,0)
 
-    self.fk,self.jacobian,self.vk = calculate_all()
+    self.fk,self.jacobian,self.vk,self.green_transform = calculate_all()
 
   def draw_masks(self,img,fname):
     kernel = np.ones((5, 5), np.uint8)
@@ -518,24 +545,39 @@ class task_node:
     
     return (bluePos,greenPos,redPos)
 
+
   def calc_joint_angles(self,bluePos,greenPos,redPos):
     #Joint 1
     blue2green = greenPos - bluePos #Forms vector representing the link
-    joint2Angle = atan2(blue2green[2], blue2green[1]) - pi/2 #Angle for joint2
+    joint2Angle = clamp(atan2(blue2green[2], blue2green[1]) - pi/2, -pi/2, pi/2) #Angle for joint2
     #Joint 2
     blue2green = rotateX(-joint2Angle, blue2green) #Rotates the vector to remove the affect of joint2
-    joint3Angle = atan2(blue2green[2], blue2green[0]) - pi/2 #Angle for joint3
+    joint3Angle = clamp(-(atan2(blue2green[2], blue2green[0]) - pi/2),-pi/2,pi/2) #Angle for joint3
     #Joint 3
     green2red = redPos - greenPos #Vector representing link
     projg2rb2g = projection(green2red, blue2green) #Projections
-    if (euclideanNorm(green2red + projg2rb2g) < euclideanNorm(green2red)):
-      joint4Angle = pi /2 - angleBetweenVectors(green2red, projg2rb2g) #Flipped if needed
-    else :
-      joint4Angle = angleBetweenVectors(green2red, projg2rb2g)
 
+    # i dont think this flipping will ever occur within the limit of this angle
+    # so this might be introducing errors with vision going nuts
+    # TODO: Check this martin
+    # if (euclideanNorm(green2red + projg2rb2g) < euclideanNorm(green2red)):
+    #   joint4Angle = pi/2 - angleBetweenVectors(green2red, projg2rb2g) #Flipped if needed
+    # else :
+
+    joint4Angle = clamp(angleBetweenVectors(green2red, projg2rb2g),-pi/2,pi/2)
+    
+    # we need to find out which side of the projg2rb2g the end effector is in 
+    # its frame of reference, we use the vector pointing in positive rotation direction of green to red
+
+    # extract z direction vector of the blue frame in the world frame
+    z_tip = (self.green_transform(0,joint2Angle) @ np.array([[0],[0],[1],[1]])).flatten()[:-1]
+    positive_dir = (z_tip - bluePos)
+
+    # find out direction of green rotation
+    if green2red@positive_dir >= 0: # dot product
+      joint4Angle *= -1
+    
     return np.array([joint2Angle, joint3Angle, joint4Angle]) #Values returned
-
-
 
 
   # pos_d-    desired position, 
@@ -546,13 +588,13 @@ class task_node:
     #TODO: tweak those 
     q_est = np.array([q1,q2,q3])
     # P gain
-    k_p = 1 
-    k_d = 0.2 
-    k_0 = 0.001 
+    k_p = 1
+    k_d = 0.1
+    k_0 = 0.0001 
     K_p = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
     # D gain
     K_d = np.array([[k_d,0,0],[0,k_d,0],[0,0,k_d]])
-    damping_factor = 4
+    damping_factor = 3
     
     # loop time
     cur_time = np.array([rospy.get_time()])
@@ -580,7 +622,7 @@ class task_node:
       delta_q = q_est - self.q_prev_cl_output
       self.q_prev_cl_output = q_est
       # q0_d TODO: deal with division by zero
-      delta_q[delta_q == 0] = 999999999999999
+      delta_q[delta_q == 0] = 0.001
       q0_d = (delta_w/(delta_q)) * k_0
       q0_d = np.array([0,q0_d[0],q0_d[1],q0_d[2]])
       sg_term = ((np.eye(4) - J_inv@J) @ q0_d)
@@ -616,23 +658,14 @@ class task_node:
 
   # --- CALLBACKS --- #
 
-  def o_x(self,data):
-    self.obstacle_pos[0] = float(data.data)
+  def q_x(self,data):
+    self.real_joint_values[0] =float(data.data)
 
-  def o_y(self,data):
-    self.obstacle_pos[1] = float(data.data)
+  def q_y(self,data):
+    self.real_joint_values[1] = float(data.data)
 
-  def o_z(self,data):
-    self.obstacle_pos[2] = float(data.data) - 1.25
-
-  def t_x(self,data):
-    self.target_pos[0] =float(data.data)
-
-  def t_y(self,data):
-    self.target_pos[1] = float(data.data)
-
-  def t_z(self,data):
-    self.target_pos[2] = float(data.data)- 1.25
+  def q_z(self,data):
+    self.real_joint_values[2] = float(data.data)
     
 
 
