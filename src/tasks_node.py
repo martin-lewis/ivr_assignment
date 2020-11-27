@@ -443,7 +443,7 @@ class task_node:
 
   #Detects the orange sphere that is the target
   def detect_target(self, img):
-    template =cv2.imread("/home/maks/catkin_ws/src/ivr_assignment/template-sphere.png", 0) #Loads the template
+    template =cv2.imread("/home/martin/catkin_ws/src/ivr_assignment/template-sphere.png", 0) #Loads the template
     thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
     if (sum(sum(thresh)) == 0): #If it is obscured
       return None #Return none
@@ -453,7 +453,7 @@ class task_node:
     return np.array([min_loc[0] + width/2, min_loc[1] + height/2]) #Returns the centre of the target
 
   def detect_box(self, img):
-    template =cv2.imread("/home/maks/catkin_ws/src/ivr_assignment/template-box.png", 0) #Loads the template
+    template =cv2.imread("/home/martin/catkin_ws/src/ivr_assignment/template-box.png", 0) #Loads the template
     thresh = cv2.inRange(img, (0,50,100), (12,75,150)) #Marks all the orange areas out
     if (sum(sum(thresh)) == 0): #If it is obscured
       return None #Return none
