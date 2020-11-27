@@ -1,3 +1,4 @@
+from operator import pos
 import numpy as np
 from math import *
 
@@ -19,3 +20,33 @@ def projectionOntoPlane( vector, planeNormal):
 
 def projection( v1, v2): #Projects v1 onto v2
     return np.multiply((np.dot(v1,v2) / pow(euclideanNorm(v2),2)), v2)
+
+def clamp(n, smallest, largest):
+    return max(smallest, min(n, largest))
+
+def smoothed_predicted_q(predictionHistory):
+
+    positives = np.zeros((3))
+    negatives = np.zeros((3))
+
+    sumPositives = np.zeros((3))
+    sumNegatives = np.zeros((3))
+
+    for q in predictionHistory:
+        positives += q >= 0
+        sumPositives += q * (q >= 0)
+        
+        negatives += q < 0
+        sumNegatives += q * (q<0)
+    
+    result = np.zeros((3))
+
+    for i in range(len(result)):
+        if positives[i] > negatives[i]:
+            result[i] = sumPositives[i]/positives[i]
+        elif positives[i] < negatives[i]:
+            result[i] = sumNegatives[i]/negatives[i]
+        else:
+            result[i] = (sumPositives[i] + sumNegatives[i])/(positives[i] + negatives[i])
+    return result
+            

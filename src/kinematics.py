@@ -23,8 +23,8 @@ def calculate_all():
 
     # print((t1*Matrix([[0],[0],[0],[1]]).subs((q1,))))
     # print(t1*t2*Matrix([[0],[0],[0],[1]]))
-
-    full_fk=trigsimp((t1*t2*t3*t4),ratio=1)
+    green_transform = t1*t2
+    full_fk=trigsimp((green_transform*t3*t4),ratio=1)
     fk_translation = full_fk[0:3,3]
 
     # print output    
@@ -39,7 +39,8 @@ def calculate_all():
 
     return (lambdify([q1,q2,q3,q4],fk_translation,"numpy"),
             lambdify([q1,q2,q3,q4],jacobian,"numpy"),
-            lambdify([q1,q2,q3,q4,q1_der,q2_der,q3_der,q4_der],jacobian*qderivative,"numpy"))
+            lambdify([q1,q2,q3,q4,q1_der,q2_der,q3_der,q4_der],jacobian*qderivative,"numpy"),
+            lambdify([q1,q2],green_transform))
 
 def getTransformationsFromDHTable(dhTable):
 
