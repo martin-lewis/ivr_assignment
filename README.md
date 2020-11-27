@@ -5,7 +5,7 @@ Completed by Maksymilian Mozolewski & Martin Lewis
 It requires the sympy library, can be installed with
 >pip3 install sympy
 
-It also requires that full absolute filepaths be used for the two template images. Lines 446 and 456 in tasks_node.py need to go from root (/) to the two files in the github repo (template-box.png and template-sphere.png), please update these to your machine otherwise they will not work and will return errors.
+It also requires that full absolute filepaths be used for the two template images. Lines 446 and 456 in tasks_node.py need to go from root (/) to the two files in the github repo (template-box.png and template-sphere.png), please update these to your machine otherwise they will not work and will return errors. This is due to CV2 not accepting relative paths or paths involving ~/
 
 Also please ensure all the files within ivr_assignment/src are set to be executable.
 
