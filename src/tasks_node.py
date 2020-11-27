@@ -31,8 +31,8 @@ class task_node:
 
     # self.task_1()
     # self.task2_1()
-    # self.task_2_2()
-    self.task_3_1()
+    self.task_2_2()
+    # self.task_3_1()
     # self.set_joints(0,0,0)
 
   def task_1(self):
@@ -209,6 +209,11 @@ class task_node:
       joint_angles[1],
       joint_angles[2])
 
+    # publish end effector
+    self.endpos_x_pub.publish(redPos[0])
+    self.endpos_y_pub.publish(redPos[1])
+    self.endpos_z_pub.publish(redPos[2])
+
     self.q_prev_observed = q_d
 
     self.set_joints(q_d[0],q_d[1],q_d[2])
@@ -229,14 +234,18 @@ class task_node:
 
     target_end_pos = self.triangulate_in_3D(self.detect_target, self.cv_image2, self.cv_image1) 
     obstacle_pos = self.triangulate_in_3D(self.detect_box, self.cv_image2, self.cv_image1) 
-    # print(target_end_pos)
-    print(target_end_pos)
+
     q_d = self.closed_control(target_end_pos,
       redPos,
       joint_angles[0],
       joint_angles[1],
       joint_angles[2],
       obstacle_pos)
+
+    # publish end effector
+    self.endpos_x_pub.publish(redPos[0])
+    self.endpos_y_pub.publish(redPos[1])
+    self.endpos_z_pub.publish(redPos[2])
 
     self.q_prev_observed = q_d
 
@@ -290,6 +299,11 @@ class task_node:
     self.est_joint2_pub = rospy.Publisher("observed/joint2", Float64, queue_size=10)
     self.est_joint3_pub = rospy.Publisher("observed/joint3", Float64, queue_size=10)
     self.est_joint4_pub = rospy.Publisher("observed/joint4", Float64, queue_size=10)
+
+    #Publish the estimated position of the 3 joints
+    self.endpos_x_pub = rospy.Publisher("endpos_x", Float64, queue_size=10)
+    self.endpos_y_pub = rospy.Publisher("endpos_y", Float64, queue_size=10)
+    self.endpos_z_pub = rospy.Publisher("endpos_z", Float64, queue_size=10)
 
     #Publish the estimated position of the target
     self.est_target_x = rospy.Publisher("observed/target_x", Float64, queue_size=10)
