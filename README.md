@@ -1,4 +1,4 @@
-#IVR Assignment
+IVR Assignment
 
 Completed by Maksymilian Mozolewski & Martin Lewis
 
