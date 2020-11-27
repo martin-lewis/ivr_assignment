@@ -32,7 +32,7 @@ class task_node:
     # self.task_1()
     # self.task2_1()
     self.task_2_2()
-    # self.task_3_1()
+    self.task_3_1()
     # self.set_joints(0,0,0)
 
   def task_1(self):
