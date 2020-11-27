@@ -30,8 +30,7 @@ Section 2 - s1824863
 \section*{2.1}
 
 The first part of this section was straight forward calculating the position of the angles based of the sinusoidal positions. This achieved with rospy's get\_time() function and sin.
-This was then published to the topics to 
-\noindent https://github.com/martin-leget the robot moving.
+This was then published to the topics to get the robot moving.
 
 The next section is getting the 3D coordinates from the 2 2D images. This was done initially with a naive system that assumed that the camera was always orthogonal,
 which it isn't. This worked fine for most cases except the extreme cases where the robot arm would point directly into a camera. This was replaced by a more complex
