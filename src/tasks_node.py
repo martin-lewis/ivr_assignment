@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from numpy.lib.function_base import angle
 import roslib
 import sys
 import rospy
@@ -16,6 +17,10 @@ import time
 from vision import *
 from control import *
 import message_filters
+import asyncio
+import os
+
+
 class task_node:
 
 
@@ -24,8 +29,8 @@ class task_node:
       return
 
     # self.task_1()
-    # self.task2_1()
-    self.task_2()
+    self.task2_1()
+    # self.task_2()
     # self.set_joints(0,0,0)
 
   def task_1(self):
@@ -57,71 +62,129 @@ class task_node:
     # print("observed ang :" +str(joint_angles))
     # for debugging
 
-    '''
+    
     if self.fk is not None:
       fk_observed= self.fk(0,joint_angles[0],-joint_angles[1],-joint_angles[2])
       fk_real = self.fk(0,target_q2,target_q3 ,target_q4)
       print("\n")
 
       print("observed     :" + str(redPos))
-      print("non-trian    :" + str(self.detect_in_3D(self.detect_red,self.cv_image2,self.cv_image1)))
+      # print("non-trian    :" + str(self.detect_in_3D(self.detect_red,self.cv_image2,self.cv_image1)))
       # print("fk observed  :" + str(fk_observed.flatten()) )
       print("fk real      :" + str(fk_real.flatten()) )
-      # print("diff real fk :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
+      print("diff real fk :" + str(np.linalg.norm(fk_real.flatten() - redPos)) )
       print("\n")
-    '''
+    
   def debug_display(self):
     mx = self.draw_masks(self.cv_image2,"xmask.png")
     my = self.draw_masks(self.cv_image1,"ymask.png")
 
-    cv2.imshow("xplane/ycam",cv2.addWeighted(self.cv_image2,0.3,mx,0.7,0))
-    cv2.imshow("yplane/xcam",cv2.addWeighted(self.cv_image1,0.3,my,0.7,0))
+    cv2.imshow("yplane/xcam",cv2.addWeighted(self.cv_image2,0.3,mx,0.7,0))
+    cv2.imshow("xplane/ycam",cv2.addWeighted(self.cv_image1,0.3,my,0.7,0))
     cv2.waitKey(0)
 
+  async def display_img_async(self,wname,img,time):
+      cv2.imshow(wname,img)
+      cv2.waitKey(time * 1000)
+      cv2.destroyAllWindows()
+
+  # Python 3.7+
+  # asyncio.run(main()
   # comparing FK position to observed position of end effector
   def task2_1(self):
-    
-    if not self.first_time:
+
+    # we set the arm to 10 angles below and observe the difference between the fk
+    # prediction and observed end effector position
+    # this function is called every time we receive an image
+
+    # we perform one dummy result at the beginning with the initial joint states being
+    # whatever they were before this task was called
+    angles = [np.array([0.5,-0.5,0.5,-0.5]),
+                      np.array([-0.5,0.5,-0.5,0.5]),
+                      np.array([0.5,0.5,0.5,0.5]),
+                      np.array([-0.5,-0.5,-0.5,-0.5]),
+                      np.array([1,0.5,-1,0.5]),
+                      np.array([0.5,1,-1,0.5]),
+                      np.array([pi/2,pi/2,0.1,0.1]), # full extension hits the ground
+                      np.array([pi,pi/2,0.1,0.1]), # full extension hits the ground
+                      np.array([-pi/2,pi/2,1,0.5]),
+                      np.array([-pi,pi/2,0.1,0.1])] # full extension hits the ground
+    arm_settling_time = 3 # the time we allocate for the arm to align to the values
+
+    filename = os.path.dirname(os.path.realpath(__file__)) + "/../report/task_2_1_results.tex"
+    if os.path.exists(filename):
+      append_write = 'a' # append if already exists
+    else:
+      append_write = 'w' # make a new file if not
+
+    f=open(filename,append_write)
+
+    # only act every period
+
+    angle_idx = self.task_context["task2_1-idx"]
+
+    if angle_idx == -1:
+      f.write("\\hline \n q1&q2&q3&q4&vision&FK&euclidian distance \\\\ \\hline \n")
+      self.task_context["task2_1-start-time"] = rospy.get_time()
+      self.set_joints(angles[0][1],
+                    angles[0][2],
+                    angles[0][3],
+                    q1=angles[0][0])
+
+      # update index for next iter
+      angle_idx += 1
+      self.task_context["task2_1-idx"] = angle_idx
+
+      # dummy phase, don't take a reading, we set the  initial joint values for the first reading
+      # we need the arm to settle into position first though
+
+    # we only act in discrete intervals to let the arm settle, we don't need to process every image
+    dt =  rospy.get_time() - self.task_context["task2_1-start-time"]
+    if dt < arm_settling_time*(angle_idx+1):
+      f.close()
       return
 
-    angles = np.array([0.1,pi,pi,pi])
-    bluePos,greenPos,redPos = self.find_blob_positions()
-    self.set_joints(angles[1],angles[2],angles[3],q1=angles[0])
-    time.sleep(2)
-    prediction = self.fk(angles[0],angles[1],angles[2],angles[3]).flatten()
-    print(redPos,prediction)
-    self.debug_display()
-    print("a")
+    print(dt,angle_idx)
 
-    self.first_time = False
-    
-    # angle_configs = [np.array([0.1,0.1,0.1,0.1]),
-    #                   np.array([-0.1,pi/3,-pi/2,pi/2]),
-    #                   np.array([pi,pi/3,-pi,-pi]),
-    #                   np.array([pi/2,-pi/3,pi/2,-pi/2]),
-    #                   np.array([0.3,pi/3,-pi/2,pi/2]),
-    #                   np.array([pi/2,pi/3,-pi/2,-pi/2]),
-    #                   np.array([-0.3,-pi/3,pi/4,-pi/4]),
-    #                   np.array([pi/4,pi/3,-pi/4,pi/4]),
-    #                   np.array([-pi/4,pi/3,-pi/4,-pi/4]),
-    #                   np.array([0.1,pi,pi,pi])]
-    # f=open("task_2_1.csv","w")
-    # f.write("q1,q2,q3,q4,vision,FK,euclidian distance\n")
+    if angle_idx < len(angles): 
+      
+      curr_arm_angles = angles[angle_idx]
 
-    # for angles in angle_configs:
-    #   # set robot angles
-    #   self.set_joints(angles[1],angles[2],angles[3],q1=angles[0])
-    #   time.sleep(3)
+      # observe end effector
+      _,_,redPos = self.find_blob_positions()
+      # calculate end effector position via fk
+      prediction = self.fk(
+        curr_arm_angles[0],
+        curr_arm_angles[1],
+        curr_arm_angles[2],
+        curr_arm_angles[3]).flatten()
 
-    #   # observe end effector
-    #   bluePos,greenPos,redPos = self.find_blob_positions()
-    #   # calculate end effector position via fk
-    #   prediction = self.fk(angles[0],angles[1],angles[2],angles[3]).flatten()
-    #   print(redPos,prediction)
+      # show snapshot at this exact moment of the image used for the measurments
+      asyncio.run(self.display_img_async("yplane/xcam-({:.2f},{:.2f},{:.2f},{:.2f})".format(curr_arm_angles[0],curr_arm_angles[1],curr_arm_angles[2],curr_arm_angles[3]),self.cv_image1,arm_settling_time))
+      # asyncio.run(self.display_img_async("xplane/ycam({:.2f},{:.2f},{:.2f},{:.2f})".format(curr_arm_angles[0],curr_arm_angles[1],curr_arm_angles[2],curr_arm_angles[3]),self.cv_image2,arm_settling_time//2))
+      print(redPos,prediction)
 
-    #   f.write("{0},{1},{2},{4},{5},{6}\n".format(angles[0],angles[1],angles[2],angles[3],redPos,prediction,np.linalg.norm(redPos-prediction)))
+      f.write("{:.2f}&{:.2f}&{:.2f}&{:.2f}&{}&{}&{} \\\\ \\hline \n".format(
+        curr_arm_angles[0],
+        curr_arm_angles[1],
+        curr_arm_angles[2],
+        curr_arm_angles[3],
+        redPos,
+        prediction,
+        np.linalg.norm(redPos-prediction)))
 
-    # f.close()
+      f.close()
+
+      # set the joint values for the next iteration (if there is one ahead)
+      if angle_idx < len(angles) - 1:
+        self.set_joints(angles[angle_idx+1][1],angles[angle_idx+1][2],angles[angle_idx+1][3],q1=angles[angle_idx+1][0])
+      
+      # update index for next iter
+      self.task_context["task2_1-idx"] = angle_idx+1
+    else:
+      pass
+
+
   def task_2(self):
 
     bluePos,greenPos,redPos = self.find_blob_positions()
@@ -166,11 +229,16 @@ class task_node:
   
   # Defines publisher and subscriber
   def __init__(self):
-  
+    np.set_printoptions(precision=3)
+
+    self.task_context = {
+      "task2_1-idx":-1,
+      "task2_1-start-time":-1,
+    }
     # prepare subscribers for both the images
     rospy.init_node('task_node', anonymous=True)
-    self.image_sub1 = message_filters.Subscriber("image_topic1",Image,queue_size=1)
-    self.image_sub2 = message_filters.Subscriber("image_topic2",Image,queue_size=1)
+    self.image_sub1 = message_filters.Subscriber("/camera1/robot/image_raw",Image)
+    self.image_sub2 = message_filters.Subscriber("/camera2/robot/image_raw",Image)
 
     # synchronise them into one callback
     self.ats = message_filters.ApproximateTimeSynchronizer([self.image_sub1,self.image_sub2],queue_size=1,slop=0.1,allow_headerless=True)
